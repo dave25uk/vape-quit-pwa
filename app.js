@@ -17,6 +17,9 @@ async function init() {
     }
     
     loadData();
+	const now = new Date();
+now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+document.getElementById('start-date').value = now.toISOString().slice(0, 16);
 }
 
 // Toggle Mode Logic
