@@ -5,6 +5,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentMode = 'vaping';
+let viewDate = new Date(); // Tracks the month currently being viewed
 
 async function init() {
     // 1. Force an anonymous sign-in and WAIT for it
@@ -46,7 +47,16 @@ async function init() {
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
+document.getElementById('prev-month').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() - 1);
+    loadData();
+});
+document.getElementById('next-month').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() + 1);
+    loadData();
+});
     // 5. Finally load the data
+
     loadData();
 }
 
@@ -95,20 +105,38 @@ async function loadData() {
 
 function renderCalendar(logs, shifts, status) {
     const grid = document.getElementById('calendar-grid');
+    const monthDisplay = document.getElementById('current-month-display');
     grid.innerHTML = '';
 
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
 
+    // Display Month/Year
+    const monthName = viewDate.toLocaleString('default', { month: 'long' });
+    monthDisplay.innerText = `${monthName} ${year}`;
+
+    // 1. Calculate Padding Days (Monday Start)
+    // getDay() returns 0 for Sunday, 1 for Monday... 
+    // We transform it so Monday = 0, Sunday = 6
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const paddingDays = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+    // 2. Days in Month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Add Empty Padding Slots
+    for (let p = 0; p < paddingDays; p++) {
+        const spacer = document.createElement('div');
+        spacer.className = 'calendar-day spacer';
+        grid.appendChild(spacer);
+    }
+
+    // 3. Create Actual Day Cells
     for (let i = 1; i <= daysInMonth; i++) {
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(i).padStart(2, '0');
-        const dateStr = `${now.getFullYear()}-${month}-${day}`;
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         
         const dayEl = document.createElement('div');
         dayEl.className = 'calendar-day';
-        
-        // Attach the date and current shift type to the element for the listener to find
         dayEl.dataset.date = dateStr;
 
         const mg = calculateMgForDate(dateStr, logs, status);
@@ -116,9 +144,13 @@ function renderCalendar(logs, shifts, status) {
 
         if (shift) {
             dayEl.classList.add(`shift-${shift.shift_type}`);
-            dayEl.dataset.currentShift = shift.shift_type; 
+            dayEl.dataset.currentShift = shift.shift_type;
         }
-        
+
+        // Highlight "Today"
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (dateStr === todayStr) dayEl.classList.add('today-highlight');
+
         dayEl.innerHTML = `
             <span>${i}</span>
             ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
@@ -128,23 +160,28 @@ function renderCalendar(logs, shifts, status) {
         grid.appendChild(dayEl);
     }
 
-    // SINGLE LISTENER FOR THE WHOLE GRID (Event Delegation)
-const handleInteraction = (e) => {
-    e.preventDefault(); // This is the magic line that stops the "double fire"
-    const dayEl = e.target.closest('.calendar-day');
-    if (!dayEl) return;
+    // Interaction Listener (Keep the one we fixed earlier)
+    setupGridListeners(grid);
+}
 
-    const dateStr = dayEl.dataset.date;
-    const currentShiftType = dayEl.dataset.currentShift;
-    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+function setupGridListeners(grid) {
+    // Remove old listeners to prevent duplicates
+    grid.replaceWith(grid.cloneNode(true));
+    const newGrid = document.getElementById('calendar-grid');
 
-    toggleShift(dateStr, currentShift);
-};
+    const handleInteraction = (e) => {
+        const dayEl = e.target.closest('.calendar-day');
+        if (!dayEl || dayEl.classList.contains('spacer')) return;
 
-// Use ONLY touchstart for fastest response on iPhone
-grid.addEventListener('touchstart', handleInteraction, { passive: false });
-// Keep click for desktop testing
-grid.addEventListener('click', handleInteraction);
+        const dateStr = dayEl.dataset.date;
+        const currentShiftType = dayEl.dataset.currentShift;
+        const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+
+        toggleShift(dateStr, currentShift);
+    };
+
+    newGrid.addEventListener('touchstart', handleInteraction, { passive: true });
+    newGrid.addEventListener('click', handleInteraction);
 }
 
 function calculateMgForDate(dateStr, logs, status) {
