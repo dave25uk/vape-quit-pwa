@@ -127,6 +127,12 @@ function renderCalendar(logs, shifts, status) {
 function calculateMgForDate(dateStr, logs, status) {
     const targetDate = new Date(dateStr);
     targetDate.setHours(0,0,0,0);
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    // Stop calculation if the date is in the future
+    if (targetDate > today) return 0;
 
     if (status.current_mode === 'quit' && status.quit_date) {
         const quitDate = new Date(status.quit_date);
@@ -134,7 +140,7 @@ function calculateMgForDate(dateStr, logs, status) {
         if (targetDate >= quitDate) return 0;
     }
 
-    // First, let's find the historical average days per bottle to use as a projection
+    // Calculate historical average gap for projection
     let historicalGaps = [];
     for (let i = 0; i < logs.length - 1; i++) {
         const diff = Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date));
@@ -142,26 +148,22 @@ function calculateMgForDate(dateStr, logs, status) {
     }
     const projectedDays = historicalGaps.length > 0 
         ? historicalGaps.reduce((a, b) => a + b) / historicalGaps.length 
-        : 7; // Default to 7 days if it's your first ever log
+        : 7;
 
     for (let i = 0; i < logs.length; i++) {
         const current = logs[i];
         const next = logs[i + 1];
         const logStart = new Date(current.start_date);
         
-        let logEnd;
         let diffDays;
-
         if (next) {
-            // We have a hard end date (the next log)
-            logEnd = new Date(next.start_date);
-            diffDays = Math.ceil(Math.abs(logEnd - logStart) / (1000 * 60 * 60 * 24)) || 1;
+            diffDays = Math.ceil(Math.abs(new Date(next.start_date) - logStart) / (1000 * 60 * 60 * 24)) || 1;
         } else {
-            // This is the LATEST log. Use the projection instead of "Now"
             diffDays = Math.max(projectedDays, 1);
-            logEnd = new Date(logStart);
-            logEnd.setDate(logEnd.getDate() + diffDays);
         }
+
+        const logEnd = new Date(logStart);
+        logEnd.setDate(logEnd.getDate() + (diffDays - 1)); 
 
         const compStart = new Date(logStart).setHours(0,0,0,0);
         const compEnd = new Date(logEnd).setHours(23,59,59,999);
@@ -233,28 +235,42 @@ async function toggleShift(dateStr, currentShift) {
 }
 
 function updateInsights(logs, shifts) {
-    const stats = { M: { sum: 0, count: 0 }, A: { sum: 0, count: 0 }, Off: { sum: 0, count: 0 } };
+    const stats = { 
+        M: { sum: 0, count: 0 }, 
+        A: { sum: 0, count: 0 }, 
+        Off: { sum: 0, count: 0 },
+        Total: { sum: 0, count: 0 } 
+    };
+    
     const now = new Date();
+    now.setHours(0,0,0,0);
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     for (let i = 1; i <= daysInMonth; i++) {
-		const date = new Date(now.getFullYear(), now.getMonth(), i);
-    if (date > now) continue; // Don't count predicted future days in your actual averages
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(i).padStart(2, '0');
-        const dateStr = `${now.getFullYear()}-${month}-${day}`;
-        
+        const date = new Date(now.getFullYear(), now.getMonth(), i);
+        // Only calculate for days that have actually happened
+        if (date > now) continue;
+
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
         const mg = parseFloat(calculateMgForDate(dateStr, logs, { current_mode: 'vaping' }));
-        const shift = shifts.find(s => s.shift_date === dateStr);
         
-        const type = shift ? shift.shift_type : 'Off';
-        stats[type].sum += mg;
-        stats[type].count++;
+        if (mg > 0) {
+            const shift = shifts.find(s => s.shift_date === dateStr);
+            const type = shift ? shift.shift_type : 'Off';
+            
+            stats[type].sum += mg;
+            stats[type].count++;
+            
+            // Add to the Master Average
+            stats.Total.sum += mg;
+            stats.Total.count++;
+        }
     }
 
     document.getElementById('avg-m').innerText = (stats.M.sum / (stats.M.count || 1)).toFixed(1) + 'mg';
     document.getElementById('avg-a').innerText = (stats.A.sum / (stats.A.count || 1)).toFixed(1) + 'mg';
     document.getElementById('avg-off').innerText = (stats.Off.sum / (stats.Off.count || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-daily').innerText = (stats.Total.sum / (stats.Total.count || 1)).toFixed(1) + 'mg';
 }
 
 function registerServiceWorker() {
