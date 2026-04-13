@@ -129,29 +129,22 @@ function renderCalendar(logs, shifts, status) {
     }
 
     // SINGLE LISTENER FOR THE WHOLE GRID (Event Delegation)
-    const handleInteraction = (e) => {
-        const dayEl = e.target.closest('.calendar-day');
-        if (!dayEl) return;
+const handleInteraction = (e) => {
+    e.preventDefault(); // This is the magic line that stops the "double fire"
+    const dayEl = e.target.closest('.calendar-day');
+    if (!dayEl) return;
 
-        // On touch devices, this stops the "click" from firing twice
-        if (e.type === 'touchstart') {
-            // We only preventDefault if it's not a scroll move
-            e.stopPropagation(); 
-        }
+    const dateStr = dayEl.dataset.date;
+    const currentShiftType = dayEl.dataset.currentShift;
+    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
 
-        const dateStr = dayEl.dataset.date;
-        const currentShiftType = dayEl.dataset.currentShift;
-        
-        // Pass a formatted object to toggleShift
-        const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
-        
-        console.log("Interacting with:", dateStr); // Check your console!
-        toggleShift(dateStr, currentShift);
-    };
+    toggleShift(dateStr, currentShift);
+};
 
-    // Attach both for maximum compatibility
-    grid.addEventListener('touchstart', handleInteraction, { passive: true });
-    grid.addEventListener('click', handleInteraction);
+// Use ONLY touchstart for fastest response on iPhone
+grid.addEventListener('touchstart', handleInteraction, { passive: false });
+// Keep click for desktop testing
+grid.addEventListener('click', handleInteraction);
 }
 
 function calculateMgForDate(dateStr, logs, status) {
@@ -245,24 +238,51 @@ document.getElementById('vape-form').addEventListener('submit', async (e) => {
 });
 
 // Shift Toggling Logic
+let istoggling = false; // Prevents double-taps
+
 async function toggleShift(dateStr, currentShift) {
-	alert("Tapping date: " + dateStr); // <--- Add this temporarily
+    if (istoggling) return;
+    istoggling = true;
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+        alert("Session lost. Please refresh.");
+        istoggling = false;
+        return;
+    }
 
     let nextType = !currentShift ? 'M' : (currentShift.shift_type === 'M' ? 'A' : null);
 
-    if (nextType) {
-        await supabase.from('work_shifts').upsert({
-            shift_date: dateStr, 
-            shift_type: nextType, 
-            is_work_day: true, 
-            user_id: user.id
-        }, { onConflict: 'shift_date,user_id' });
-    } else {
-        await supabase.from('work_shifts').delete().match({ shift_date: dateStr, user_id: user.id });
+    try {
+        if (nextType) {
+            // THE FIX: Explicitly handle the 'upsert'
+            const { error } = await supabase.from('work_shifts').upsert({
+                shift_date: dateStr,
+                shift_type: nextType,
+                is_work_day: true,
+                user_id: user.id
+            }, { 
+                onConflict: 'shift_date,user_id' // Tells Supabase which row to overwrite
+            });
+
+            if (error) throw error;
+        } else {
+            // Delete if cycling back to 'None'
+            const { error } = await supabase.from('work_shifts')
+                .delete()
+                .match({ shift_date: dateStr, user_id: user.id });
+
+            if (error) throw error;
+        }
+        
+        // Refresh the UI
+        await loadData(); 
+    } catch (err) {
+        alert("Database Error: " + err.message);
+    } finally {
+        // Allow the next tap after 300ms
+        setTimeout(() => { istoggling = false; }, 300);
     }
-    loadData();
 }
 
 function updateInsights(logs, shifts) {
