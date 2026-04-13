@@ -100,29 +100,46 @@ function renderCalendar(logs, shifts, status) {
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-    for (let i = 1; i <= daysInMonth; i++) {
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(i).padStart(2, '0');
-        const dateStr = `${now.getFullYear()}-${month}-${day}`;
-        
-        const dayEl = document.createElement('div');
-        dayEl.className = 'calendar-day';
+for (let i = 1; i <= daysInMonth; i++) {
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(i).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${month}-${day}`;
+    
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day';
+    
+    // ATTACH THE DATE TO THE ELEMENT
+    dayEl.dataset.date = dateStr;
 
-        const mg = calculateMgForDate(dateStr, logs, status);
-        const shift = shifts.find(s => s.shift_date === dateStr);
+    const mg = calculateMgForDate(dateStr, logs, status);
+    const shift = shifts.find(s => s.shift_date === dateStr);
 
-        if (shift) dayEl.classList.add(`shift-${shift.shift_type}`);
-        
-        dayEl.innerHTML = `
-            <span>${i}</span>
-            ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
-            <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
-        `;
+    if (shift) {
+        dayEl.classList.add(`shift-${shift.shift_type}`);
+        dayEl.dataset.currentShift = shift.shift_type; // Store current shift type
+    }
+    
+    dayEl.innerHTML = `
+        <span>${i}</span>
+        ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
+        <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
+    `;
 
-        // This handles both iPhone taps and desktop clicks
-const handleInteraction = (e) => {
-    e.preventDefault(); // Prevents "ghost clicks"
-    toggleShift(dateStr, shift);
+    grid.appendChild(dayEl);
+}
+
+// REMOVE individual listeners and add ONE at the end of the function:
+grid.onclick = (e) => {
+    const dayEl = e.target.closest('.calendar-day');
+    if (!dayEl) return;
+
+    const dateStr = dayEl.dataset.date;
+    const currentShiftType = dayEl.dataset.currentShift;
+    
+    // Reconstruct a mini shift object for the toggle function
+    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+    
+    toggleShift(dateStr, currentShift);
 };
 
 dayEl.addEventListener('touchstart', handleInteraction, { passive: false });
@@ -223,6 +240,7 @@ document.getElementById('vape-form').addEventListener('submit', async (e) => {
 
 // Shift Toggling Logic
 async function toggleShift(dateStr, currentShift) {
+	alert("Tapping date: " + dateStr); // <--- Add this temporarily
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
