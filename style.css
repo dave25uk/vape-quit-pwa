@@ -14,3 +14,9 @@ form { background: white; padding: 20px; border-radius: 12px; margin-top: 20px; 
 input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
 button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; }
 #mode-toggle { width: auto; background: #eee; color: #333; padding: 6px 12px; }
+.calendar-day {
+    /* ... your existing styles ... */
+    cursor: pointer; /* Tells iOS this is clickable */
+    -webkit-tap-highlight-color: transparent; /* Removes the gray box when tapping */
+    touch-action: manipulation; /* Optimizes for fast tapping */
+}

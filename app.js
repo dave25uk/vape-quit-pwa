@@ -119,7 +119,14 @@ function renderCalendar(logs, shifts, status) {
             <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
         `;
 
-        dayEl.addEventListener('click', () => toggleShift(dateStr, shift));
+        // This handles both iPhone taps and desktop clicks
+const handleInteraction = (e) => {
+    e.preventDefault(); // Prevents "ghost clicks"
+    toggleShift(dateStr, shift);
+};
+
+dayEl.addEventListener('touchstart', handleInteraction, { passive: false });
+dayEl.addEventListener('click', handleInteraction);
         grid.appendChild(dayEl);
     }
 }
