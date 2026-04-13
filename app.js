@@ -134,18 +134,40 @@ function calculateMgForDate(dateStr, logs, status) {
         if (targetDate >= quitDate) return 0;
     }
 
+    // First, let's find the historical average days per bottle to use as a projection
+    let historicalGaps = [];
+    for (let i = 0; i < logs.length - 1; i++) {
+        const diff = Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date));
+        historicalGaps.push(Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+    const projectedDays = historicalGaps.length > 0 
+        ? historicalGaps.reduce((a, b) => a + b) / historicalGaps.length 
+        : 7; // Default to 7 days if it's your first ever log
+
     for (let i = 0; i < logs.length; i++) {
         const current = logs[i];
         const next = logs[i + 1];
         const logStart = new Date(current.start_date);
-        const logEnd = next ? new Date(next.start_date) : new Date();
+        
+        let logEnd;
+        let diffDays;
+
+        if (next) {
+            // We have a hard end date (the next log)
+            logEnd = new Date(next.start_date);
+            diffDays = Math.ceil(Math.abs(logEnd - logStart) / (1000 * 60 * 60 * 24)) || 1;
+        } else {
+            // This is the LATEST log. Use the projection instead of "Now"
+            diffDays = Math.max(projectedDays, 1);
+            logEnd = new Date(logStart);
+            logEnd.setDate(logEnd.getDate() + diffDays);
+        }
 
         const compStart = new Date(logStart).setHours(0,0,0,0);
         const compEnd = new Date(logEnd).setHours(23,59,59,999);
 
         if (targetDate.getTime() >= compStart && targetDate.getTime() <= compEnd) {
             const totalMg = current.quantity_ml * current.strength_mg;
-            const diffDays = Math.ceil(Math.abs(logEnd - logStart) / (1000 * 60 * 60 * 24)) || 1;
             return (totalMg / diffDays).toFixed(1);
         }
     }
@@ -216,6 +238,8 @@ function updateInsights(logs, shifts) {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     for (let i = 1; i <= daysInMonth; i++) {
+		const date = new Date(now.getFullYear(), now.getMonth(), i);
+    if (date > now) continue; // Don't count predicted future days in your actual averages
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(i).padStart(2, '0');
         const dateStr = `${now.getFullYear()}-${month}-${day}`;
