@@ -7,32 +7,46 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 let currentMode = 'vaping';
 
 async function init() {
-    // 1. Silently sign in anonymously
+    // 1. Force an anonymous sign-in and WAIT for it
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
     
     if (authError) {
         console.error("Auth failed:", authError.message);
-    } else {
-        console.log("Logged in as:", authData.user.id);
+        alert("Authentication failed: " + authError.message);
+        return; 
     }
 
+    // Double-check we actually have a user ID now
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.log("Still no user, retrying...");
+        // If it fails, we try one more time or alert
+        return;
+    }
+
+    console.log("Logged in successfully as:", user.id);
+
+    // 2. Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
-    // 2. Fetch initial status
+    // 3. Fetch initial status (use maybeSingle to avoid errors if empty)
     const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
     if (status) {
         currentMode = status.current_mode;
         updateUI();
     }
     
-    // 3. Set default date for iPhone (local time fix)
+    // 4. Set default date for iPhone (local time fix)
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
-    document.getElementById('start-date').value = localISOTime;
+    
+    const dateInput = document.getElementById('start-date');
+    if (dateInput) dateInput.value = localISOTime;
 
+    // 5. Finally load the data
     loadData();
 }
 
