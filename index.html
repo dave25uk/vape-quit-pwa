@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vape/Quit Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <header>
+        <h1 id="app-title">Vape Tracker</h1>
+        <button id="mode-toggle">Switch to Quit Mode</button>
+    </header>
+
+    <main id="app-content">
+        <section id="dashboard">
+            <div class="stat-card">
+                <span id="stat-label">Daily Avg:</span>
+                <strong id="stat-value">0mg</strong>
+            </div>
+        </section>
+
+        <section id="calendar-container">
+            <h3>Usage Calendar</h3>
+            <div id="calendar-grid"></div>
+        </section>
+
+        <section id="entry-section">
+            <form id="vape-form">
+                <input type="number" id="ml" placeholder="Quantity (ml)" required>
+                <input type="number" id="mg" placeholder="Strength (mg)" required>
+                <input type="number" id="cost" placeholder="Cost (£)" required>
+                <button type="submit">Log New Vape</button>
+            </form>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
