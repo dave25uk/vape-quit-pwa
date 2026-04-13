@@ -141,12 +141,14 @@ document.getElementById('vape-form').addEventListener('submit', async (e) => {
     user_id: user.id
 };
 
-    const { error } = await supabase.from('vape_logs').insert([payload]);
-    
-    if (!error) {
-        alert("Logged!");
-        loadData();
-    }
+    const { data, error } = await supabase.from('vape_logs').insert([payload]);
+
+if (error) {
+    alert("Error saving: " + error.message);
+} else {
+    alert("Saved successfully!");
+    location.reload(); // This forces the app to pull fresh data
+}
 });
 
 // Shift Toggling Logic
