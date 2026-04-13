@@ -100,52 +100,58 @@ function renderCalendar(logs, shifts, status) {
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-for (let i = 1; i <= daysInMonth; i++) {
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(i).padStart(2, '0');
-    const dateStr = `${now.getFullYear()}-${month}-${day}`;
-    
-    const dayEl = document.createElement('div');
-    dayEl.className = 'calendar-day';
-    
-    // ATTACH THE DATE TO THE ELEMENT
-    dayEl.dataset.date = dateStr;
+    for (let i = 1; i <= daysInMonth; i++) {
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(i).padStart(2, '0');
+        const dateStr = `${now.getFullYear()}-${month}-${day}`;
+        
+        const dayEl = document.createElement('div');
+        dayEl.className = 'calendar-day';
+        
+        // Attach the date and current shift type to the element for the listener to find
+        dayEl.dataset.date = dateStr;
 
-    const mg = calculateMgForDate(dateStr, logs, status);
-    const shift = shifts.find(s => s.shift_date === dateStr);
+        const mg = calculateMgForDate(dateStr, logs, status);
+        const shift = shifts.find(s => s.shift_date === dateStr);
 
-    if (shift) {
-        dayEl.classList.add(`shift-${shift.shift_type}`);
-        dayEl.dataset.currentShift = shift.shift_type; // Store current shift type
-    }
-    
-    dayEl.innerHTML = `
-        <span>${i}</span>
-        ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
-        <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
-    `;
+        if (shift) {
+            dayEl.classList.add(`shift-${shift.shift_type}`);
+            dayEl.dataset.currentShift = shift.shift_type; 
+        }
+        
+        dayEl.innerHTML = `
+            <span>${i}</span>
+            ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
+            <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
+        `;
 
-    grid.appendChild(dayEl);
-}
-
-// REMOVE individual listeners and add ONE at the end of the function:
-grid.onclick = (e) => {
-    const dayEl = e.target.closest('.calendar-day');
-    if (!dayEl) return;
-
-    const dateStr = dayEl.dataset.date;
-    const currentShiftType = dayEl.dataset.currentShift;
-    
-    // Reconstruct a mini shift object for the toggle function
-    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
-    
-    toggleShift(dateStr, currentShift);
-};
-
-dayEl.addEventListener('touchstart', handleInteraction, { passive: false });
-dayEl.addEventListener('click', handleInteraction);
         grid.appendChild(dayEl);
     }
+
+    // SINGLE LISTENER FOR THE WHOLE GRID (Event Delegation)
+    const handleInteraction = (e) => {
+        const dayEl = e.target.closest('.calendar-day');
+        if (!dayEl) return;
+
+        // On touch devices, this stops the "click" from firing twice
+        if (e.type === 'touchstart') {
+            // We only preventDefault if it's not a scroll move
+            e.stopPropagation(); 
+        }
+
+        const dateStr = dayEl.dataset.date;
+        const currentShiftType = dayEl.dataset.currentShift;
+        
+        // Pass a formatted object to toggleShift
+        const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+        
+        console.log("Interacting with:", dateStr); // Check your console!
+        toggleShift(dateStr, currentShift);
+    };
+
+    // Attach both for maximum compatibility
+    grid.addEventListener('touchstart', handleInteraction, { passive: true });
+    grid.addEventListener('click', handleInteraction);
 }
 
 function calculateMgForDate(dateStr, logs, status) {
