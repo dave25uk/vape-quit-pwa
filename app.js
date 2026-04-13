@@ -7,25 +7,28 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 let currentMode = 'vaping';
 
 async function init() {
-    registerServiceWorker();
-    
-    // Fetch initial status
-    const { data: status } = await supabase.from('user_status').select('*').single();
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+
+    const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
     if (status) {
         currentMode = status.current_mode;
         updateUI();
     }
     
+    // Set default date for iPhone
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+    document.getElementById('start-date').value = localISOTime;
+
     loadData();
-	const now = new Date();
-now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-document.getElementById('start-date').value = now.toISOString().slice(0, 16);
 }
 
-// Toggle Mode Logic
 document.getElementById('mode-toggle').addEventListener('click', async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Please log in first!");
+    if (!user) return alert("Please log in!");
 
     const newMode = currentMode === 'vaping' ? 'quit' : 'vaping';
     const quitDate = newMode === 'quit' ? new Date().toISOString() : null;
@@ -38,7 +41,7 @@ document.getElementById('mode-toggle').addEventListener('click', async () => {
 
     currentMode = newMode;
     updateUI();
-    loadData(); // Refresh to show 0mg if quit
+    loadData();
 });
 
 function updateUI() {
@@ -47,7 +50,7 @@ function updateUI() {
     const entrySection = document.getElementById('entry-section');
 
     if (currentMode === 'quit') {
-        title.innerText = "Quit Tracker 🌿";
+        title.innerText = "Quit Mode 🌿";
         toggleBtn.innerText = "Back to Vaping";
         entrySection.style.display = "none";
     } else {
@@ -62,7 +65,8 @@ async function loadData() {
     const { data: shifts } = await supabase.from('work_shifts').select('*');
     const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
 
-    renderCalendar(logs, shifts, status || { current_mode: 'vaping' });
+    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' });
+    updateInsights(logs || [], shifts || []);
 }
 
 function renderCalendar(logs, shifts, status) {
@@ -73,25 +77,25 @@ function renderCalendar(logs, shifts, status) {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     for (let i = 1; i <= daysInMonth; i++) {
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(i).padStart(2, '0');
+        const dateStr = `${now.getFullYear()}-${month}-${day}`;
+        
         const dayEl = document.createElement('div');
         dayEl.className = 'calendar-day';
 
-        // 1. Determine Intake
-        let mg = calculateMgForDate(dateStr, logs, status);
-        
-        // 2. Check for Work Shift
+        const mg = calculateMgForDate(dateStr, logs, status);
         const shift = shifts.find(s => s.shift_date === dateStr);
-        if (shift) {
-            dayEl.classList.add(`shift-${shift.shift_type}`);
-            dayEl.innerHTML = `<span>${i}</span><small class="shift-tag">${shift.shift_type}</small><strong>${mg}mg</strong>`;
-        } else {
-            dayEl.innerHTML = `<span>${i}</span><strong>${mg}mg</strong>`;
-        }
 
-        // 3. Add Click Listener for Shift Toggling
+        if (shift) dayEl.classList.add(`shift-${shift.shift_type}`);
+        
+        dayEl.innerHTML = `
+            <span>${i}</span>
+            ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
+            <strong>${mg > 0 ? mg + 'mg' : '-'}</strong>
+        `;
+
         dayEl.addEventListener('click', () => toggleShift(dateStr, shift));
-
         grid.appendChild(dayEl);
     }
 }
@@ -100,7 +104,6 @@ function calculateMgForDate(dateStr, logs, status) {
     const targetDate = new Date(dateStr);
     targetDate.setHours(0,0,0,0);
 
-    // If in Quit Mode and date is after quit_date, return 0
     if (status.current_mode === 'quit' && status.quit_date) {
         const quitDate = new Date(status.quit_date);
         quitDate.setHours(0,0,0,0);
@@ -110,96 +113,76 @@ function calculateMgForDate(dateStr, logs, status) {
     for (let i = 0; i < logs.length; i++) {
         const current = logs[i];
         const next = logs[i + 1];
-        
-        const startDate = new Date(current.start_date);
-        const endDate = next ? new Date(next.start_date) : new Date();
+        const logStart = new Date(current.start_date);
+        const logEnd = next ? new Date(next.start_date) : new Date();
 
-        if (targetDate >= new Date(startDate.setHours(0,0,0,0)) && targetDate < new Date(endDate.setHours(23,59,59,999))) {
+        const compStart = new Date(logStart).setHours(0,0,0,0);
+        const compEnd = new Date(logEnd).setHours(23,59,59,999);
+
+        if (targetDate.getTime() >= compStart && targetDate.getTime() <= compEnd) {
             const totalMg = current.quantity_ml * current.strength_mg;
-            const diffTime = Math.abs(endDate - startDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+            const diffDays = Math.ceil(Math.abs(logEnd - logStart) / (1000 * 60 * 60 * 24)) || 1;
             return (totalMg / diffDays).toFixed(1);
         }
     }
     return 0;
 }
 
-// Form Submission
 document.getElementById('vape-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const userResponse = await supabase.auth.getUser();
-    const user = userResponse.data.user;
-
-    if (!user) return alert("Please log in!");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("Log in required");
     
     const payload = {
-    quantity_ml: parseFloat(document.getElementById('ml').value),
-    strength_mg: parseFloat(document.getElementById('mg').value),
-    cost: parseFloat(document.getElementById('cost').value),
-    // Pull the value from the new input box
-    start_date: new Date(document.getElementById('start-date').value).toISOString(),
-    user_id: user.id
-};
+        quantity_ml: parseFloat(document.getElementById('ml').value),
+        strength_mg: parseFloat(document.getElementById('mg').value),
+        cost: parseFloat(document.getElementById('cost').value),
+        start_date: new Date(document.getElementById('start-date').value).toISOString(),
+        user_id: user.id
+    };
 
-    const { data, error } = await supabase.from('vape_logs').insert([payload]);
-
-if (error) {
-    alert("Error saving: " + error.message);
-} else {
-    alert("Saved successfully!");
-    location.reload(); // This forces the app to pull fresh data
-}
+    const { error } = await supabase.from('vape_logs').insert([payload]);
+    if (error) alert(error.message);
+    else {
+        e.target.reset();
+        loadData();
+    }
 });
 
-// Shift Toggling Logic
 async function toggleShift(dateStr, currentShift) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Please log in!");
+    if (!user) return;
 
-    let nextType = null;
-    let nextIsWork = false;
-
-    if (!currentShift) {
-        nextType = 'M';
-        nextIsWork = true;
-    } else if (currentShift.shift_type === 'M') {
-        nextType = 'A';
-        nextIsWork = true;
-    } else {
-        nextType = null;
-        nextIsWork = false;
-    }
+    let nextType = !currentShift ? 'M' : (currentShift.shift_type === 'M' ? 'A' : null);
 
     if (nextType) {
         await supabase.from('work_shifts').upsert({
-            shift_date: dateStr,
-            shift_type: nextType,
-            is_work_day: nextIsWork,
-            user_id: user.id
+            shift_date: dateStr, shift_type: nextType, is_work_day: true, user_id: user.id
         });
     } else {
-        await supabase.from('work_shifts')
-            .delete()
-            .match({ shift_date: dateStr, user_id: user.id });
+        await supabase.from('work_shifts').delete().match({ shift_date: dateStr, user_id: user.id });
     }
-
     loadData();
 }
 
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
-    }
-}
-
 function updateInsights(logs, shifts) {
-    // This filters your calculated daily mg by shift type
-    const workDays = shifts.filter(s => s.is_work_day);
-    
-    // Logic: 
-    // 1. Calculate average mg for all 'M' shift days
-    // 2. Calculate average mg for all 'A' shift days
-    // 3. Calculate average mg for all 'Off' days
+    const stats = { M: { sum: 0, count: 0 }, A: { sum: 0, count: 0 }, Off: { sum: 0, count: 0 } };
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const mg = parseFloat(calculateMgForDate(dateStr, logs, { current_mode: 'vaping' }));
+        const shift = shifts.find(s => s.shift_date === dateStr);
+        
+        const type = shift ? shift.shift_type : 'Off';
+        stats[type].sum += mg;
+        stats[type].count++;
+    }
+
+    document.getElementById('avg-m').innerText = (stats.M.sum / (stats.M.count || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-a').innerText = (stats.A.sum / (stats.A.count || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-off').innerText = (stats.Off.sum / (stats.Off.count || 1)).toFixed(1) + 'mg';
 }
 
 init();

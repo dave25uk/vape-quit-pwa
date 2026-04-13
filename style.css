@@ -1,31 +1,16 @@
-body { font-family: sans-serif; background: #f4f7f6; color: #333; margin: 0; padding: 20px; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-
-#calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 10px;
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-	min-height: 300px; /* Forces it to take up space */
-    border: 1px solid #ddd; /* Temporary border to see where it is */
-}
-
-.calendar-day {
-    border: 1px solid #eee;
-    padding: 10px;
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    border-radius: 4px;
-}
-
-.work-day { background-color: #e0f2fe; border-color: #7dd3fc; }
-.shift-tag { position: absolute; top: 2px; right: 2px; font-size: 0.7rem; color: #0369a1; font-weight: bold; }
-
-.calendar-day strong { font-size: 1.1rem; color: #4f46e5; margin-top: 5px; }
-form { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
-input { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+:root { --primary: #4f46e5; --work-m: #fef3c7; --work-a: #dcfce7; }
+body { font-family: -apple-system, sans-serif; background: #f9fafb; padding: 15px; margin: 0; }
+header { display: flex; justify-content: space-between; align-items: center; }
+#insights-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.insight-item { font-size: 0.85rem; color: #666; }
+.insight-item strong { display: block; font-size: 1.1rem; color: var(--primary); }
+#calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-day { background: white; border-radius: 6px; aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; font-size: 0.75rem; border: 1px solid #eee; }
+.calendar-day strong { font-size: 0.65rem; color: var(--primary); }
+.shift-tag { position: absolute; top: 2px; right: 2px; font-weight: bold; color: #999; }
+.shift-M { background: var(--work-m); border-color: #f59e0b; }
+.shift-A { background: var(--work-a); border-color: #10b981; }
+form { background: white; padding: 20px; border-radius: 12px; margin-top: 20px; }
+input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; }
+#mode-toggle { width: auto; background: #eee; color: #333; padding: 6px 12px; }

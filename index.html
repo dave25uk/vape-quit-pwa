@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vape/Quit Tracker</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -14,26 +14,12 @@
     </header>
 
     <main id="app-content">
-        <section id="dashboard">
-            <div class="stat-card">
-                <span id="stat-label">Daily Avg:</span>
-                <strong id="stat-value">0mg</strong>
-            </div>
+        <section id="insights-bar">
+            <div class="insight-item">Work (M) Avg: <strong id="avg-m">0mg</strong></div>
+            <div class="insight-item">Work (A) Avg: <strong id="avg-a">0mg</strong></div>
+            <div class="insight-item">Off-Day Avg: <strong id="avg-off">0mg</strong></div>
         </section>
-<section id="insights-bar">
-    <div class="insight-item">
-        <span>Work (M) Avg:</span>
-        <strong id="avg-m">0mg</strong>
-    </div>
-    <div class="insight-item">
-        <span>Work (A) Avg:</span>
-        <strong id="avg-a">0mg</strong>
-    </div>
-    <div class="insight-item">
-        <span>Off-Day Avg:</span>
-        <strong id="avg-off">0mg</strong>
-    </div>
-</section>
+
         <section id="calendar-container">
             <h3>Usage Calendar</h3>
             <div id="calendar-grid"></div>
@@ -41,18 +27,18 @@
 
         <section id="entry-section">
             <form id="vape-form">
-    <input type="number" id="ml" placeholder="Quantity (ml)" step="any" required>
-    <input type="number" id="mg" placeholder="Strength (mg)" step="any" required>
-    <input type="number" id="cost" placeholder="Cost (£)" step="any" required>
-    
-    <label for="start-date">Start Date/Time:</label>
-    <input type="datetime-local" id="start-date" required>
-    
-    <button type="submit">Log New Vape</button>
-</form>
+                <input type="number" id="ml" placeholder="Quantity (ml)" step="any" required>
+                <input type="number" id="mg" placeholder="Strength (mg)" step="any" required>
+                <input type="number" id="cost" placeholder="Cost (£)" step="any" required>
+                
+                <label for="start-date">Started at:</label>
+                <input type="datetime-local" id="start-date" required>
+                
+                <button type="submit">Log New Vape</button>
+            </form>
         </section>
     </main>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
