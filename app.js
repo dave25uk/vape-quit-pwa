@@ -79,18 +79,20 @@ document.getElementById('mode-toggle').addEventListener('click', async () => {
 });
 
 function updateUI() {
-    const title = document.getElementById('app-title');
+    const emojiEl = document.getElementById('status-emoji');
     const toggleBtn = document.getElementById('mode-toggle');
-    const entrySection = document.getElementById('entry-section');
+    const titleEl = document.getElementById('app-title');
 
     if (currentMode === 'quit') {
-        title.innerText = "Quit Mode 🌿";
-        toggleBtn.innerText = "Back to Vaping";
-        entrySection.style.display = "none";
+        titleEl.firstChild.textContent = "Quit Tracker "; // Change title text
+        emojiEl.innerText = "🚭"; 
+        toggleBtn.innerText = "Switch to Vaping Mode";
+        // ... rest of your quit UI logic
     } else {
-        title.innerText = "Vape Tracker 💨";
+        titleEl.firstChild.textContent = "Vape Tracker ";
+        emojiEl.innerText = "💨"; // Put the wind emoji here
         toggleBtn.innerText = "Switch to Quit Mode";
-        entrySection.style.display = "block";
+        // ... rest of your vaping UI logic
     }
 }
 

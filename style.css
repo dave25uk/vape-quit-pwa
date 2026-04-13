@@ -134,11 +134,17 @@ input {
     margin: 0; 
     padding: 10px;
     font-size: 0.9rem;
+    height: 45px; /* Force a consistent height */
+    box-sizing: border-box;
 }
 
+/* Specific fix for the date picker */
 input[type="datetime-local"] {
     background: #f3f4f6;
     border: 1px solid #e5e7eb;
+    line-height: 1.2; /* Adjusts internal text alignment */
+    display: flex; /* Helps vertically center the text on iPhone */
+    align-items: center;
 }
 
 /* --- Buttons --- */
