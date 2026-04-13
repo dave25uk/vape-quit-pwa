@@ -130,12 +130,13 @@ document.getElementById('vape-form').addEventListener('submit', async (e) => {
     if (!user) return alert("Please log in!");
     
     const payload = {
-        quantity_ml: parseFloat(document.getElementById('ml').value),
-        strength_mg: parseFloat(document.getElementById('mg').value),
-        cost: parseFloat(document.getElementById('cost').value),
-        start_date: new Date().toISOString(),
-        user_id: user.id
-    };
+    quantity_ml: parseFloat(document.getElementById('ml').value),
+    strength_mg: parseFloat(document.getElementById('mg').value),
+    cost: parseFloat(document.getElementById('cost').value),
+    // Pull the value from the new input box
+    start_date: new Date(document.getElementById('start-date').value).toISOString(),
+    user_id: user.id
+};
 
     const { error } = await supabase.from('vape_logs').insert([payload]);
     

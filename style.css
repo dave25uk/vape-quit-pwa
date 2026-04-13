@@ -9,6 +9,8 @@ header { display: flex; justify-content: space-between; align-items: center; mar
     padding: 15px;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+	min-height: 300px; /* Forces it to take up space */
+    border: 1px solid #ddd; /* Temporary border to see where it is */
 }
 
 .calendar-day {
