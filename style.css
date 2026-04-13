@@ -117,6 +117,7 @@ form {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     margin-bottom: 15px;
+    align-items: stretch; /* Forces all items to be the same height */
 }
 
 /* Base input style */
@@ -131,20 +132,26 @@ input {
 
 /* Specific overrides for the 2x2 grid */
 .input-grid input {
-    margin: 0; 
+    margin: 0;
     padding: 10px;
     font-size: 0.9rem;
-    height: 45px; /* Force a consistent height */
+    height: 48px; /* Fixed height for all */
     box-sizing: border-box;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
 }
 
-/* Specific fix for the date picker */
+/* Force the date picker to align its internal text */
 input[type="datetime-local"] {
     background: #f3f4f6;
     border: 1px solid #e5e7eb;
-    line-height: 1.2; /* Adjusts internal text alignment */
-    display: flex; /* Helps vertically center the text on iPhone */
-    align-items: center;
+    display: flex;
+    align-items: center; /* Centers the date text vertically */
+    padding-top: 0;
+    padding-bottom: 0;
+    -webkit-appearance: none; /* Kills the default iOS bevel */
+    min-height: 48px;
 }
 
 /* --- Buttons --- */

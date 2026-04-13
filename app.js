@@ -8,7 +8,7 @@ let currentMode = 'vaping';
 let viewDate = new Date(); // Tracks the month currently being viewed
 
 async function init() {
-    // 1. Force an anonymous sign-in and WAIT for it
+    // 1. Force an anonymous sign-in
     const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
     
     if (authError) {
@@ -17,29 +17,26 @@ async function init() {
         return; 
     }
 
-    // Double-check we actually have a user ID now
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        console.log("Still no user, retrying...");
-        // If it fails, we try one more time or alert
-        return;
-    }
+    if (!user) return;
 
     console.log("Logged in successfully as:", user.id);
 
-    // 2. Register Service Worker for PWA
+    // 2. Register Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
-    // 3. Fetch initial status (use maybeSingle to avoid errors if empty)
+    // 3. Fetch initial status & TRIGGER UI
     const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
-    if (status) {
-        currentMode = status.current_mode;
-        updateUI();
-    }
     
-    // 4. Set default date for iPhone (local time fix)
+    // Set the mode regardless of whether status exists
+    currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
+    
+    // This MUST run every time to set the emoji 💨
+    updateUI();
+    
+    // 4. Set default date for iPhone
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
@@ -47,16 +44,18 @@ async function init() {
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
-document.getElementById('prev-month').addEventListener('click', () => {
-    viewDate.setMonth(viewDate.getMonth() - 1);
-    loadData();
-});
-document.getElementById('next-month').addEventListener('click', () => {
-    viewDate.setMonth(viewDate.getMonth() + 1);
-    loadData();
-});
-    // 5. Finally load the data
+    // 5. Calendar Navigation Listeners
+    // We use ?. to prevent errors if the buttons aren't found
+    document.getElementById('prev-month')?.addEventListener('click', () => {
+        viewDate.setMonth(viewDate.getMonth() - 1);
+        loadData();
+    });
+    document.getElementById('next-month')?.addEventListener('click', () => {
+        viewDate.setMonth(viewDate.getMonth() + 1);
+        loadData();
+    });
 
+    // 6. Finally load the data
     loadData();
 }
 
@@ -83,16 +82,19 @@ function updateUI() {
     const toggleBtn = document.getElementById('mode-toggle');
     const titleEl = document.getElementById('app-title');
 
+    // Safety check: if the HTML hasn't loaded yet, don't run
+    if (!emojiEl || !titleEl) return;
+
     if (currentMode === 'quit') {
-        titleEl.firstChild.textContent = "Quit Tracker "; // Change title text
+        titleEl.firstChild.textContent = "Quit Tracker ";
         emojiEl.innerText = "🚭"; 
         toggleBtn.innerText = "Switch to Vaping Mode";
-        // ... rest of your quit UI logic
+        // Hide/Show relevant sections for Quit Mode here
     } else {
         titleEl.firstChild.textContent = "Vape Tracker ";
-        emojiEl.innerText = "💨"; // Put the wind emoji here
+        emojiEl.innerText = "💨";
         toggleBtn.innerText = "Switch to Quit Mode";
-        // ... rest of your vaping UI logic
+        // Hide/Show relevant sections for Vaping Mode here
     }
 }
 
