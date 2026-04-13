@@ -7,17 +7,27 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 let currentMode = 'vaping';
 
 async function init() {
+    // 1. Silently sign in anonymously
+    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    
+    if (authError) {
+        console.error("Auth failed:", authError.message);
+    } else {
+        console.log("Logged in as:", authData.user.id);
+    }
+
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js');
     }
 
+    // 2. Fetch initial status
     const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
     if (status) {
         currentMode = status.current_mode;
         updateUI();
     }
     
-    // Set default date for iPhone
+    // 3. Set default date for iPhone (local time fix)
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
@@ -128,27 +138,45 @@ function calculateMgForDate(dateStr, logs, status) {
     return 0;
 }
 
+// Form Submission
 document.getElementById('vape-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Get the user from the current anonymous session
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Log in required");
+    
+    if (!user) {
+        alert("Session expired. Refreshing...");
+        location.reload();
+        return;
+    }
     
     const payload = {
         quantity_ml: parseFloat(document.getElementById('ml').value),
         strength_mg: parseFloat(document.getElementById('mg').value),
         cost: parseFloat(document.getElementById('cost').value),
         start_date: new Date(document.getElementById('start-date').value).toISOString(),
-        user_id: user.id
+        user_id: user.id 
     };
 
     const { error } = await supabase.from('vape_logs').insert([payload]);
-    if (error) alert(error.message);
-    else {
+    
+    if (error) {
+        alert("Save error: " + error.message);
+    } else {
+        alert("Vape Logged!");
         e.target.reset();
+        
+        // Reset the date input to "now" for the next entry
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        document.getElementById('start-date').value = (new Date(now - offset)).toISOString().slice(0, 16);
+        
         loadData();
     }
 });
 
+// Shift Toggling Logic
 async function toggleShift(dateStr, currentShift) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -157,8 +185,11 @@ async function toggleShift(dateStr, currentShift) {
 
     if (nextType) {
         await supabase.from('work_shifts').upsert({
-            shift_date: dateStr, shift_type: nextType, is_work_day: true, user_id: user.id
-        });
+            shift_date: dateStr, 
+            shift_type: nextType, 
+            is_work_day: true, 
+            user_id: user.id
+        }, { onConflict: 'shift_date,user_id' });
     } else {
         await supabase.from('work_shifts').delete().match({ shift_date: dateStr, user_id: user.id });
     }
@@ -171,7 +202,10 @@ function updateInsights(logs, shifts) {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     for (let i = 1; i <= daysInMonth; i++) {
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(i).padStart(2, '0');
+        const dateStr = `${now.getFullYear()}-${month}-${day}`;
+        
         const mg = parseFloat(calculateMgForDate(dateStr, logs, { current_mode: 'vaping' }));
         const shift = shifts.find(s => s.shift_date === dateStr);
         
@@ -183,6 +217,12 @@ function updateInsights(logs, shifts) {
     document.getElementById('avg-m').innerText = (stats.M.sum / (stats.M.count || 1)).toFixed(1) + 'mg';
     document.getElementById('avg-a').innerText = (stats.A.sum / (stats.A.count || 1)).toFixed(1) + 'mg';
     document.getElementById('avg-off').innerText = (stats.Off.sum / (stats.Off.count || 1)).toFixed(1) + 'mg';
+}
+
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
 }
 
 init();
