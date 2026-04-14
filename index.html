@@ -18,38 +18,38 @@
             <div class="insight-item">Work (M) Avg: <strong id="avg-m">0mg</strong></div>
             <div class="insight-item">Work (A) Avg: <strong id="avg-a">0mg</strong></div>
             <div class="insight-item">Off-Day Avg: <strong id="avg-off">0mg</strong></div>
-            <div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
+			<div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
         </section>
 
         <section id="calendar-container">
-            <div class="calendar-header">
-                <button id="edit-lock-btn" type="button">🔒</button>
-                <div class="nav-group">
-                    <button id="prev-month" type="button">&lt;</button>
-                    <h3 id="current-month-display">Month Year</h3>
-                    <button id="next-month" type="button">&gt;</button>
-                </div>
-            </div>
-            
-            <div class="weekday-header">
-                <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-            </div>
-            
-            <div id="calendar-grid" class="locked"></div>
-        </section>
+    <div class="calendar-header">
+    <button id="edit-lock-btn" title="Toggle Edit Mode">🔓</button>
+    <div class="nav-group">
+        <button id="prev-month">&lt;</button>
+        <h3 id="current-month-display">Month Year</h3>
+        <button id="next-month">&gt;</button>
+    </div>
+</div>
+    
+    <div class="weekday-header">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    </div>
+    
+    <div id="calendar-grid"></div>
+</section>
 
         <section id="entry-section">
             <form id="vape-form">
-                <div class="input-grid">
-                    <input type="number" id="ml" placeholder="Qty (ml)" step="any" required>
-                    <input type="number" id="mg" placeholder="Str (mg)" step="any" required>
-                    <input type="number" id="cost" placeholder="Cost (£)" step="any" required>
-                    <div class="date-container">
-                        <input type="datetime-local" id="start-date" required>
-                    </div>
-                </div>
-                <button type="submit" id="log-button">Log New Vape</button>
-            </form>
+    <div class="input-grid">
+        <input type="number" id="ml" placeholder="Qty (ml)" step="any" required>
+        <input type="number" id="mg" placeholder="Str (mg)" step="any" required>
+        <input type="number" id="cost" placeholder="Cost (£)" step="any" required>
+        <div class="date-container">
+            <input type="datetime-local" id="start-date" required>
+        </div>
+    </div>
+    <button type="submit" id="log-button">Log New Vape</button>
+</form>
         </section>
     </main>
 
