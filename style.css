@@ -36,52 +36,52 @@ h1#app-title {
 .insight-item { font-size: 0.85rem; color: #666; }
 .insight-item strong { display: block; font-size: 1.1rem; color: var(--primary); }
 
-/* --- Calendar Header & Nav --- */
 .calendar-header {
     display: flex;
-    justify-content: space-between; /* Space between lock and nav */
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
-	pointer-events: auto;
 }
+
 .nav-group {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
 }
+
 #edit-lock-btn {
     background: #f3f4f6;
-    color: #333;
-    border: 2px solid red !important; /* Temporary: to see if the ID is correct */
-	position: relative;
-    font-size: 1rem;
+    border: 1px solid #ddd;
+    font-size: 1.2rem;
     width: 44px;
     height: 44px;
-	z-index: 999; /* Put it on top of everything */
-    pointer-events: auto !important; /* Ensure it accepts touches */
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
 }
-/* Visual cue when the grid is locked */
-#calendar-grid.locked .calendar-day {
-    opacity: 0.9;
-    cursor: default;
+
+#edit-lock-btn.unlocked {
+    background: #fee2e2;
+    border-color: #fca5a5;
 }
-#calendar-grid.locked .calendar-day:active {
-    background-color: white; 
-}
-.calendar-header button {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    font-size: 1.2rem;
+
+.calendar-header .nav-group button {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
+    background: #eee;
+    color: #333;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 #current-month-display {
-    min-width: 120px;
+    min-width: 110px;
     text-align: center;
+    font-size: 1rem;
     margin: 0;
 }
 
@@ -96,11 +96,14 @@ h1#app-title {
     text-transform: uppercase;
 }
 
-/* --- Calendar Grid --- */
 #calendar-grid { 
     display: grid; 
     grid-template-columns: repeat(7, 1fr); 
     gap: 4px; 
+}
+
+#calendar-grid.locked {
+    opacity: 0.8;
 }
 
 .calendar-day { 
@@ -114,20 +117,17 @@ h1#app-title {
     position: relative; 
     font-size: 0.75rem; 
     border: 1px solid #eee;
-    cursor: pointer;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
 }
 
 .calendar-day strong { font-size: 0.65rem; color: var(--primary); }
 .calendar-day.spacer { background: transparent; border: none; }
 .today-highlight { border: 2px solid var(--primary) !important; }
 
-.shift-tag { position: absolute; top: 2px; right: 2px; font-weight: bold; color: #999; }
+.shift-tag { position: absolute; top: 2px; right: 2px; font-weight: bold; color: #999; font-size: 0.6rem; }
 .shift-M { background: var(--work-m); border-color: #f59e0b; }
 .shift-A { background: var(--work-a); border-color: #10b981; }
 
-/* --- Form & Inputs --- */
 form { 
     background: white; 
     padding: 20px; 
@@ -140,44 +140,28 @@ form {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     margin-bottom: 15px;
-    align-items: stretch; /* Forces all items to be the same height */
 }
 
-/* Base input style */
-input { 
-    width: 100%; 
-    padding: 12px; 
-    border: 1px solid #ddd; 
-    border-radius: 8px; 
-    box-sizing: border-box; 
-    font-size: 16px; 
-}
-
-/* Specific overrides for the 2x2 grid */
 .input-grid input {
     margin: 0;
     padding: 10px;
     font-size: 0.9rem;
-    height: 48px; /* Fixed height for all */
+    height: 48px;
     box-sizing: border-box;
     border: 1px solid #ddd;
     border-radius: 8px;
     background: white;
 }
 
-/* Force the date picker to align its internal text */
 input[type="datetime-local"] {
     background: #f3f4f6;
     border: 1px solid #e5e7eb;
     display: flex;
-    align-items: center; /* Centers the date text vertically */
-    padding-top: 0;
-    padding-bottom: 0;
-    -webkit-appearance: none; /* Kills the default iOS bevel */
+    align-items: center;
+    -webkit-appearance: none;
     min-height: 48px;
 }
 
-/* --- Buttons --- */
 button { 
     width: 100%; 
     background: var(--primary); 
@@ -188,11 +172,9 @@ button {
     font-weight: bold; 
 }
 
-#mode-toggle { width: auto; background: #eee; color: #333; padding: 6px 12px; }
+#mode-toggle { width: auto; background: #eee; color: #333; padding: 6px 12px; font-size: 0.8rem; }
 
 #log-button {
     padding: 18px;
     font-size: 1.1rem;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
 }
