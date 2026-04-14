@@ -36,7 +36,6 @@ async function init() {
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
-    // FIX: Replaced optional chaining assignment with standard element selection
     const prevBtn = document.getElementById('prev-month');
     const nextBtn = document.getElementById('next-month');
     
@@ -230,21 +229,40 @@ function calculateMgForDate(dateStr, logs, status) {
         if (targetDate >= quitDate) return 0;
     }
 
+    // 1. Calculate historical average gap
     let gaps = [];
     for (let i = 0; i < logs.length - 1; i++) {
         gaps.push(Math.ceil(Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date)) / 86400000));
     }
-    const projected = gaps.length > 0 ? gaps.reduce((a, b) => a + b) / gaps.length : 7;
+    const historicalAverageGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b) / gaps.length : 7;
 
     for (let i = 0; i < logs.length; i++) {
         const cur = logs[i];
         const logStart = new Date(cur.start_date);
         const next = logs[i + 1];
-        let diff = next ? Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000) : Math.max(projected, 1);
-        if (diff === 0) diff = 1;
+        
+        let diff;
+        if (next) {
+            // Standard gap between two known logs
+            diff = Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000);
+        } else {
+            // NEW LOGIC: For the tail end (most recent log till today)
+            // Calculate calendar days passed from start till today
+            const startMidnight = new Date(logStart);
+            startMidnight.setHours(0,0,0,0);
+            const todayMidnight = new Date(today);
+            todayMidnight.setHours(0,0,0,0);
+            const actualDaysPassed = Math.round((todayMidnight - startMidnight) / 86400000) + 1;
+            
+            // We use the larger number of days (which minimizes the mg per day)
+            // if actualDaysPassed > historicalAverageGap, the user is doing better than average.
+            diff = Math.max(historicalAverageGap, actualDaysPassed);
+        }
+        
+        if (diff < 1) diff = 1;
 
         const logEnd = new Date(logStart);
-        logEnd.setDate(logEnd.getDate() + (diff - 1));
+        logEnd.setDate(logEnd.getDate() + (Math.ceil(diff) - 1));
 
         if (targetDate >= logStart.setHours(0,0,0,0) && targetDate <= logEnd.setHours(23,59,59,999)) {
             return ((cur.quantity_ml * cur.strength_mg) / diff).toFixed(1);
