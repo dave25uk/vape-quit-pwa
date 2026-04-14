@@ -223,19 +223,24 @@ async function toggleShift(dateStr, currentShift) {
     }
 }
 
-function calculateMgForDate(dateStr, logs, status, overallAvg = null) {
+function calculateMgForDate(dateStr, logs, status, overallAvg = 0) {
     const targetDate = new Date(dateStr);
     targetDate.setHours(0,0,0,0);
     const today = new Date();
     today.setHours(0,0,0,0);
+    
+    // 1. Never show data for the future
     if (targetDate > today) return 0;
 
+    // 2. PRIORITY: If in Quit Mode, check the date
     if (status.current_mode === 'quit' && status.quit_date) {
-        const quitDate = new Date(status.quit_date);
-        quitDate.setHours(0,0,0,0);
-        if (targetDate >= quitDate) return 0;
+        const qDate = new Date(status.quit_date);
+        qDate.setHours(0,0,0,0);
+        // If the calendar day is on or after the day you quit, show 0mg
+        if (targetDate >= qDate) return 0;
     }
 
+    // 3. Process logs
     for (let i = 0; i < logs.length; i++) {
         const cur = logs[i];
         const logStart = new Date(cur.start_date);
@@ -243,30 +248,20 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = null) {
         
         let diff;
         if (next) {
-            // Completed bottles use actual historical data
             diff = Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000);
         } else {
-            // Current active bottle logic
-            const startMidnight = new Date(logStart);
-            startMidnight.setHours(0,0,0,0);
-            const todayMidnight = new Date(today);
-            todayMidnight.setHours(0,0,0,0);
-            const actualDaysPassed = Math.round((todayMidnight - startMidnight) / 86400000) + 1;
+            const startM = new Date(logStart); startM.setHours(0,0,0,0);
+            const todayM = new Date(today); todayM.setHours(0,0,0,0);
+            const actualDays = Math.round((todayM - startM) / 86400000) + 1;
             
-            const totalNicotine = cur.quantity_ml * cur.strength_mg;
-            const liveAvg = totalNicotine / actualDaysPassed;
+            const totalNic = cur.quantity_ml * cur.strength_mg;
+            const liveAvg = totalNic / actualDays;
 
-            // If we have an overall average (from insights), use the lower of the two
-            // Otherwise, default to a safe 7-day estimate for new users
-            if (overallAvg && overallAvg > 0) {
-                // If liveAvg is 56mg but overallAvg is 32.9mg, use 32.9mg.
-                // Once liveAvg hits 31mg, it will switch to showing 31mg.
-                return Math.min(liveAvg, overallAvg).toFixed(1);
-            } else {
-                // Fallback for when insights aren't calculated yet
-                const fallbackDiff = Math.max(7, actualDaysPassed);
-                return (totalNicotine / fallbackDiff).toFixed(1);
+            if (overallAvg > 0) {
+                const result = Math.min(liveAvg, overallAvg);
+                return result.toFixed(1);
             }
+            diff = Math.max(7, actualDays);
         }
         
         if (diff < 1) diff = 1;
