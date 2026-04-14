@@ -21,8 +21,6 @@ async function init() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    console.log("Logged in successfully as:", user.id);
-
     // 2. Register Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
@@ -30,23 +28,17 @@ async function init() {
 
     // 3. Fetch initial status & TRIGGER UI
     const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
-    
-    // Set the mode regardless of whether status exists
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
-    
-    // This MUST run every time to set the emoji 💨
     updateUI();
     
     // 4. Set default date for iPhone
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
-    
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
     // 5. Calendar Navigation Listeners
-    // We use ?. to prevent errors if the buttons aren't found
     document.getElementById('prev-month')?.addEventListener('click', () => {
         viewDate.setMonth(viewDate.getMonth() - 1);
         loadData();
@@ -55,19 +47,32 @@ async function init() {
         viewDate.setMonth(viewDate.getMonth() + 1);
         loadData();
     });
-	
-	document.getElementById('edit-lock-btn').addEventListener('click', (e) => {
-    isCalendarLocked = !isCalendarLocked;
-    e.target.innerText = isCalendarLocked ? "🔓" : "🔒";
-    // Optional: Add a class to the grid so we can style it when locked
-    document.getElementById('calendar-grid').classList.toggle('locked', isCalendarLocked);
-});
 
-    // 6. Finally load the data
+    // 6. Lock/Unlock Toggle (iPhone Optimized)
+    const lockBtn = document.getElementById('edit-lock-btn');
+    if (lockBtn) {
+        const handleLock = (e) => {
+            e.preventDefault(); // Critical for iOS stability
+            isCalendarLocked = !isCalendarLocked;
+            
+            // Update Icon and Classes
+            lockBtn.innerText = isCalendarLocked ? "🔓" : "🔒";
+            lockBtn.classList.toggle('is-locked', isCalendarLocked);
+            
+            const grid = document.getElementById('calendar-grid');
+            if (grid) grid.classList.toggle('locked', isCalendarLocked);
+        };
+
+        lockBtn.addEventListener('touchstart', handleLock, { passive: false });
+        lockBtn.addEventListener('click', handleLock);
+    }
+
+    // 7. Finally load the data
     loadData();
 }
 
-document.getElementById('mode-toggle').addEventListener('click', async () => {
+// Mode Toggle Listener
+document.getElementById('mode-toggle')?.addEventListener('click', async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("Please log in!");
 
@@ -78,12 +83,12 @@ document.getElementById('mode-toggle').addEventListener('click', async () => {
         user_id: user.id,
         current_mode: newMode, 
         quit_date: quitDate 
-    });
+    }, { onConflict: 'user_id' }); // Ensure upsert targets the correct row
 
     currentMode = newMode;
     updateUI();
     loadData();
-})
+});
 
 function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
