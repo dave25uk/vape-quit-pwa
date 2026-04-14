@@ -49,23 +49,37 @@ async function init() {
     });
 
     // 6. Lock/Unlock Toggle (iPhone Optimized)
-    const lockBtn = document.getElementById('edit-lock-btn');
-    if (lockBtn) {
-        const handleLock = (e) => {
-            e.preventDefault(); // Critical for iOS stability
-            isCalendarLocked = !isCalendarLocked;
-            
-            // Update Icon and Classes
-            lockBtn.innerText = isCalendarLocked ? "🔓" : "🔒";
-            lockBtn.classList.toggle('is-locked', isCalendarLocked);
-            
-            const grid = document.getElementById('calendar-grid');
-            if (grid) grid.classList.toggle('locked', isCalendarLocked);
-        };
+// Inside init() function
+const lockBtn = document.getElementById('edit-lock-btn');
+if (lockBtn) {
+    console.log("Lock button found in DOM");
 
-        lockBtn.addEventListener('touchstart', handleLock, { passive: false });
-        lockBtn.addEventListener('click', handleLock);
-    }
+    const handleLock = (e) => {
+        // Log to see if the tap is even registered
+        console.log("Lock button tapped!");
+        
+        // Stop the event from bubbling up
+        e.preventDefault();
+        e.stopPropagation();
+
+        isCalendarLocked = !isCalendarLocked;
+        
+        // Use a simpler visual update first to verify it works
+        if (isCalendarLocked) {
+            lockBtn.innerText = "🔓";
+            lockBtn.style.backgroundColor = "#f3f4f6";
+            document.getElementById('calendar-grid')?.classList.add('locked');
+        } else {
+            lockBtn.innerText = "🔒";
+            lockBtn.style.backgroundColor = "#fee2e2";
+            document.getElementById('calendar-grid')?.classList.remove('locked');
+        }
+    };
+
+    // Attach to both to cover all bases
+    lockBtn.onclick = handleLock; 
+    lockBtn.ontouchstart = handleLock;
+}
 
     // 7. Finally load the data
     loadData();

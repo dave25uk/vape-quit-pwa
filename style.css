@@ -42,6 +42,7 @@ h1#app-title {
     justify-content: space-between; /* Space between lock and nav */
     align-items: center;
     margin-bottom: 15px;
+	pointer-events: auto;
 }
 .nav-group {
     display: flex;
@@ -51,10 +52,13 @@ h1#app-title {
 #edit-lock-btn {
     background: #f3f4f6;
     color: #333;
-    border: 1px solid #ddd;
+    border: 2px solid red !important; /* Temporary: to see if the ID is correct */
+	position: relative;
     font-size: 1rem;
     width: 44px;
     height: 44px;
+	z-index: 999; /* Put it on top of everything */
+    pointer-events: auto !important; /* Ensure it accepts touches */
 }
 /* Visual cue when the grid is locked */
 #calendar-grid.locked .calendar-day {
