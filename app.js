@@ -6,6 +6,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentMode = 'vaping';
 let viewDate = new Date(); // Tracks the month currently being viewed
+let isCalendarLocked = true; // Default to locked for safety
 
 async function init() {
     // 1. Force an anonymous sign-in
@@ -54,6 +55,13 @@ async function init() {
         viewDate.setMonth(viewDate.getMonth() + 1);
         loadData();
     });
+	
+	document.getElementById('edit-lock-btn').addEventListener('click', (e) => {
+    isCalendarLocked = !isCalendarLocked;
+    e.target.innerText = isCalendarLocked ? "🔓" : "🔒";
+    // Optional: Add a class to the grid so we can style it when locked
+    document.getElementById('calendar-grid').classList.toggle('locked', isCalendarLocked);
+});
 
     // 6. Finally load the data
     loadData();
@@ -174,15 +182,19 @@ function setupGridListeners(grid) {
     const newGrid = document.getElementById('calendar-grid');
 
     const handleInteraction = (e) => {
-        const dayEl = e.target.closest('.calendar-day');
-        if (!dayEl || dayEl.classList.contains('spacer')) return;
+    if (isCalendarLocked) return; // EXIT EARLY IF LOCKED
 
-        const dateStr = dayEl.dataset.date;
-        const currentShiftType = dayEl.dataset.currentShift;
-        const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+    const dayEl = e.target.closest('.calendar-day');
+    if (!dayEl || dayEl.classList.contains('spacer')) return;
 
-        toggleShift(dateStr, currentShift);
-    };
+    if (e.type === 'touchstart') e.preventDefault();
+
+    const dateStr = dayEl.dataset.date;
+    const currentShiftType = dayEl.dataset.currentShift;
+    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+
+    toggleShift(dateStr, currentShift);
+};
 
     newGrid.addEventListener('touchstart', handleInteraction, { passive: true });
     newGrid.addEventListener('click', handleInteraction);
