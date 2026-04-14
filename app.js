@@ -55,26 +55,22 @@ if (lockBtn) {
     console.log("Lock button found in DOM");
 
     const handleLock = (e) => {
-        // Log to see if the tap is even registered
-        console.log("Lock button tapped!");
-        
-        // Stop the event from bubbling up
-        e.preventDefault();
-        e.stopPropagation();
-
-        isCalendarLocked = !isCalendarLocked;
-        
-        // Use a simpler visual update first to verify it works
-        if (isCalendarLocked) {
-            lockBtn.innerText = "🔓";
-            lockBtn.style.backgroundColor = "#f3f4f6";
-            document.getElementById('calendar-grid')?.classList.add('locked');
-        } else {
-            lockBtn.innerText = "🔒";
-            lockBtn.style.backgroundColor = "#fee2e2";
-            document.getElementById('calendar-grid')?.classList.remove('locked');
-        }
-    };
+    e.preventDefault();
+    isCalendarLocked = !isCalendarLocked;
+    
+    // LOCKED STATE
+    if (isCalendarLocked) {
+        lockBtn.innerText = "🔒"; // Show locked symbol
+        lockBtn.style.backgroundColor = "#f3f4f6"; // Gray
+        document.getElementById('calendar-grid')?.classList.add('locked');
+    } 
+    // EDITABLE STATE
+    else {
+        lockBtn.innerText = "🔓"; // Show unlocked symbol
+        lockBtn.style.backgroundColor = "#fee2e2"; // Red-ish tint
+        document.getElementById('calendar-grid')?.classList.remove('locked');
+    }
+};
 
     // Attach to both to cover all bases
     lockBtn.onclick = handleLock; 
@@ -173,10 +169,13 @@ function renderCalendar(logs, shifts, status) {
         const mg = calculateMgForDate(dateStr, logs, status);
         const shift = shifts.find(s => s.shift_date === dateStr);
 
-        if (shift) {
-            dayEl.classList.add(`shift-${shift.shift_type}`);
-            dayEl.dataset.currentShift = shift.shift_type;
-        }
+       // Inside the for loop in renderCalendar
+if (shift) {
+    dayEl.classList.add(`shift-${shift.shift_type}`);
+    dayEl.dataset.currentShift = shift.shift_type; // THIS IS THE CRITICAL LINE
+} else {
+    dayEl.dataset.currentShift = ""; // Ensure it's empty if no shift exists
+}
 
         // Highlight "Today"
         const todayStr = new Date().toISOString().split('T')[0];
@@ -200,19 +199,19 @@ function setupGridListeners(grid) {
     grid.replaceWith(grid.cloneNode(true));
     const newGrid = document.getElementById('calendar-grid');
 
-    const handleInteraction = (e) => {
-    if (isCalendarLocked) return; // EXIT EARLY IF LOCKED
+const handleInteraction = (e) => {
+    if (isCalendarLocked) return;
 
     const dayEl = e.target.closest('.calendar-day');
     if (!dayEl || dayEl.classList.contains('spacer')) return;
 
-    if (e.type === 'touchstart') e.preventDefault();
-
     const dateStr = dayEl.dataset.date;
-    const currentShiftType = dayEl.dataset.currentShift;
-    const currentShift = currentShiftType ? { shift_type: currentShiftType } : null;
+    const currentShiftType = dayEl.dataset.currentShift; // Grab the type from the dataset
+    
+    // Create the object toggleShift expects
+    const currentShiftObj = currentShiftType ? { shift_type: currentShiftType } : null;
 
-    toggleShift(dateStr, currentShift);
+    toggleShift(dateStr, currentShiftObj);
 };
 
     newGrid.addEventListener('touchstart', handleInteraction, { passive: true });
@@ -323,36 +322,40 @@ async function toggleShift(dateStr, currentShift) {
         return;
     }
 
-    let nextType = !currentShift ? 'M' : (currentShift.shift_type === 'M' ? 'A' : null);
+    // Robust cycle logic: None -> M -> A -> None
+    let nextType = null;
+    const currentType = currentShift ? currentShift.shift_type : null;
+
+    if (!currentType) {
+        nextType = 'M';
+    } else if (currentType === 'M') {
+        nextType = 'A';
+    } else if (currentType === 'A') {
+        nextType = null; // Cycles back to delete
+    }
 
     try {
         if (nextType) {
-            // THE FIX: Explicitly handle the 'upsert'
             const { error } = await supabase.from('work_shifts').upsert({
                 shift_date: dateStr,
                 shift_type: nextType,
                 is_work_day: true,
                 user_id: user.id
             }, { 
-                onConflict: 'shift_date,user_id' // Tells Supabase which row to overwrite
+                onConflict: 'shift_date,user_id' 
             });
-
             if (error) throw error;
         } else {
-            // Delete if cycling back to 'None'
             const { error } = await supabase.from('work_shifts')
                 .delete()
                 .match({ shift_date: dateStr, user_id: user.id });
-
             if (error) throw error;
         }
         
-        // Refresh the UI
         await loadData(); 
     } catch (err) {
         alert("Database Error: " + err.message);
     } finally {
-        // Allow the next tap after 300ms
         setTimeout(() => { istoggling = false; }, 300);
     }
 }
