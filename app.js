@@ -83,7 +83,7 @@ document.getElementById('mode-toggle').addEventListener('click', async () => {
     currentMode = newMode;
     updateUI();
     loadData();
-});
+})
 
 function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
