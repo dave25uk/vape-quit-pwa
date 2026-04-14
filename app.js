@@ -10,9 +10,7 @@ let isCalendarLocked = true;
 let istoggling = false;
 
 async function init() {
-    // 1. Session Persistence check
     const { data: { session } } = await supabase.auth.getSession();
-    
     if (!session) {
         await supabase.auth.signInAnonymously();
     }
@@ -24,7 +22,6 @@ async function init() {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
-    // 2. Fetch status for THIS user only
     const { data: status } = await supabase.from('user_status')
         .select('*')
         .eq('user_id', user.id)
@@ -33,24 +30,29 @@ async function init() {
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
     updateUI();
     
-    // Default date for entry
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
-    // 3. Navigation Listeners
-    document.getElementById('prev-month')?.onclick = () => {
-        viewDate.setMonth(viewDate.getMonth() - 1);
-        loadData();
-    };
-    document.getElementById('next-month')?.onclick = () => {
-        viewDate.setMonth(viewDate.getMonth() + 1);
-        loadData();
-    };
+    // FIX: Replaced optional chaining assignment with standard element selection
+    const prevBtn = document.getElementById('prev-month');
+    const nextBtn = document.getElementById('next-month');
+    
+    if (prevBtn) {
+        prevBtn.onclick = () => {
+            viewDate.setMonth(viewDate.getMonth() - 1);
+            loadData();
+        };
+    }
+    if (nextBtn) {
+        nextBtn.onclick = () => {
+            viewDate.setMonth(viewDate.getMonth() + 1);
+            loadData();
+        };
+    }
 
-    // 4. Lock Toggle
     const lockBtn = document.getElementById('edit-lock-btn');
     if (lockBtn) {
         const handleLock = (e) => {
@@ -58,13 +60,13 @@ async function init() {
             isCalendarLocked = !isCalendarLocked;
             lockBtn.innerText = isCalendarLocked ? "🔒" : "🔓";
             lockBtn.style.backgroundColor = isCalendarLocked ? "#f3f4f6" : "#fee2e2";
-            document.getElementById('calendar-grid')?.classList.toggle('locked', isCalendarLocked);
+            const grid = document.getElementById('calendar-grid');
+            if (grid) grid.classList.toggle('locked', isCalendarLocked);
         };
         lockBtn.onclick = handleLock;
         lockBtn.ontouchstart = handleLock;
     }
 
-    // 5. Permanent Grid Listener (Event Delegation)
     const grid = document.getElementById('calendar-grid');
     if (grid) {
         const handleGridTap = (e) => {
@@ -105,7 +107,7 @@ function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
     const toggleBtn = document.getElementById('mode-toggle');
     const titleEl = document.getElementById('app-title');
-    if (!emojiEl || !titleEl) return;
+    if (!emojiEl || !toggleBtn || !titleEl) return;
 
     if (currentMode === 'quit') {
         titleEl.firstChild.textContent = "Quit Tracker ";
@@ -122,7 +124,6 @@ async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // IMPORTANT: Only fetch data for THIS user
     const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
@@ -134,7 +135,8 @@ async function loadData() {
 function renderCalendar(logs, shifts, status) {
     const grid = document.getElementById('calendar-grid');
     const monthDisplay = document.getElementById('current-month-display');
-    if (!grid) return;
+    if (!grid || !monthDisplay) return;
+    
     grid.innerHTML = '';
 
     const year = viewDate.getFullYear();
@@ -186,7 +188,6 @@ async function toggleShift(dateStr, currentShift) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { istoggling = false; return; }
 
-    // Cycle: None -> M -> A -> None
     let nextType = null;
     const currentType = currentShift ? (typeof currentShift === 'string' ? currentShift : currentShift.shift_type) : null;
 
@@ -272,32 +273,41 @@ function updateInsights(logs, shifts) {
         }
     }
 
-    document.getElementById('avg-m').innerText = (stats.M.s / (stats.M.c || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-a').innerText = (stats.A.s / (stats.A.c || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-off').innerText = (stats.Off.s / (stats.Off.c || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-daily').innerText = (stats.T.s / (stats.T.c || 1)).toFixed(1) + 'mg';
+    const mEl = document.getElementById('avg-m');
+    const aEl = document.getElementById('avg-a');
+    const offEl = document.getElementById('avg-off');
+    const dailyEl = document.getElementById('avg-daily');
+
+    if (mEl) mEl.innerText = (stats.M.s / (stats.M.c || 1)).toFixed(1) + 'mg';
+    if (aEl) aEl.innerText = (stats.A.s / (stats.A.c || 1)).toFixed(1) + 'mg';
+    if (offEl) offEl.innerText = (stats.Off.s / (stats.Off.c || 1)).toFixed(1) + 'mg';
+    if (dailyEl) dailyEl.innerText = (stats.T.s / (stats.T.c || 1)).toFixed(1) + 'mg';
 }
 
-document.getElementById('vape-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    const payload = {
-        quantity_ml: parseFloat(document.getElementById('ml').value),
-        strength_mg: parseFloat(document.getElementById('mg').value),
-        cost: parseFloat(document.getElementById('cost').value),
-        start_date: new Date(document.getElementById('start-date').value).toISOString(),
-        user_id: user.id 
-    };
+const vapeForm = document.getElementById('vape-form');
+if (vapeForm) {
+    vapeForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const payload = {
+            quantity_ml: parseFloat(document.getElementById('ml').value),
+            strength_mg: parseFloat(document.getElementById('mg').value),
+            cost: parseFloat(document.getElementById('cost').value),
+            start_date: new Date(document.getElementById('start-date').value).toISOString(),
+            user_id: user.id 
+        };
 
-    const { error } = await supabase.from('vape_logs').insert([payload]);
-    if (!error) {
-        e.target.reset();
-        const n = new Date();
-        document.getElementById('start-date').value = (new Date(n - n.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-        loadData();
-    }
-};
+        const { error } = await supabase.from('vape_logs').insert([payload]);
+        if (!error) {
+            e.target.reset();
+            const n = new Date();
+            const dateInput = document.getElementById('start-date');
+            if (dateInput) dateInput.value = (new Date(n - n.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            loadData();
+        }
+    };
+}
 
 init();
