@@ -10,11 +10,11 @@ let isCalendarLocked = true;
 let istoggling = false;
 
 async function init() {
-    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+    // 1. Session Persistence check
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (authError) {
-        console.error("Auth failed:", authError.message);
-        return; 
+    if (!session) {
+        await supabase.auth.signInAnonymously();
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -24,72 +24,65 @@ async function init() {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
-    const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
+    // 2. Fetch status for THIS user only
+    const { data: status } = await supabase.from('user_status')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
     updateUI();
     
+    // Default date for entry
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
 
-    // 1. Navigation Listeners
-    document.getElementById('prev-month')?.addEventListener('click', () => {
+    // 3. Navigation Listeners
+    document.getElementById('prev-month')?.onclick = () => {
         viewDate.setMonth(viewDate.getMonth() - 1);
         loadData();
-    });
-    document.getElementById('next-month')?.addEventListener('click', () => {
+    };
+    document.getElementById('next-month')?.onclick = () => {
         viewDate.setMonth(viewDate.getMonth() + 1);
         loadData();
-    });
+    };
 
-    // 2. Lock/Unlock Toggle
+    // 4. Lock Toggle
     const lockBtn = document.getElementById('edit-lock-btn');
     if (lockBtn) {
         const handleLock = (e) => {
             e.preventDefault();
             isCalendarLocked = !isCalendarLocked;
-            
-            if (isCalendarLocked) {
-                lockBtn.innerText = "🔒";
-                lockBtn.style.backgroundColor = "#f3f4f6";
-                document.getElementById('calendar-grid')?.classList.add('locked');
-            } else {
-                lockBtn.innerText = "🔓";
-                lockBtn.style.backgroundColor = "#fee2e2"; 
-                document.getElementById('calendar-grid')?.classList.remove('locked');
-            }
+            lockBtn.innerText = isCalendarLocked ? "🔒" : "🔓";
+            lockBtn.style.backgroundColor = isCalendarLocked ? "#f3f4f6" : "#fee2e2";
+            document.getElementById('calendar-grid')?.classList.toggle('locked', isCalendarLocked);
         };
         lockBtn.onclick = handleLock;
         lockBtn.ontouchstart = handleLock;
     }
 
-    // 3. THE FIX: Permanent Grid Listener (Event Delegation)
-    // We attach this ONCE to the parent. It works even when we clear/refill the grid.
+    // 5. Permanent Grid Listener (Event Delegation)
     const grid = document.getElementById('calendar-grid');
     if (grid) {
-        const handleGridClick = (e) => {
+        const handleGridTap = (e) => {
             if (isCalendarLocked) return;
-
             const dayEl = e.target.closest('.calendar-day');
             if (!dayEl || dayEl.classList.contains('spacer')) return;
 
             const dateStr = dayEl.dataset.date;
             const currentType = dayEl.dataset.currentShift; 
-            
             toggleShift(dateStr, currentType ? { shift_type: currentType } : null);
         };
-
-        grid.addEventListener('click', handleGridClick);
-        // Passive: false allows e.preventDefault() if needed, but here we just need the tap
-        grid.addEventListener('touchstart', handleGridClick, { passive: true });
+        grid.onclick = handleGridTap;
+        grid.ontouchstart = handleGridTap;
     }
 
     loadData();
 }
 
-// Mode Toggle Listener
 document.getElementById('mode-toggle')?.addEventListener('click', async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -126,9 +119,13 @@ function updateUI() {
 }
 
 async function loadData() {
-    const { data: logs } = await supabase.from('vape_logs').select('*').order('start_date', { ascending: true });
-    const { data: shifts } = await supabase.from('work_shifts').select('*');
-    const { data: status } = await supabase.from('user_status').select('*').maybeSingle();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // IMPORTANT: Only fetch data for THIS user
+    const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
+    const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
+    const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
 
     renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' });
     updateInsights(logs || [], shifts || []);
@@ -138,21 +135,20 @@ function renderCalendar(logs, shifts, status) {
     const grid = document.getElementById('calendar-grid');
     const monthDisplay = document.getElementById('current-month-display');
     if (!grid) return;
-    
     grid.innerHTML = '';
 
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
-    monthDisplay.innerText = viewDate.toLocaleString('default', { month: 'long' }) + ` ${year}`;
+    monthDisplay.innerText = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
     const firstDay = new Date(year, month, 1).getDay();
-    const paddingDays = firstDay === 0 ? 6 : firstDay - 1;
+    const padding = firstDay === 0 ? 6 : firstDay - 1;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    for (let p = 0; p < paddingDays; p++) {
-        const spacer = document.createElement('div');
-        spacer.className = 'calendar-day spacer';
-        grid.appendChild(spacer);
+    for (let p = 0; p < padding; p++) {
+        const s = document.createElement('div');
+        s.className = 'calendar-day spacer';
+        grid.appendChild(s);
     }
 
     for (let i = 1; i <= daysInMonth; i++) {
@@ -168,7 +164,7 @@ function renderCalendar(logs, shifts, status) {
             dayEl.classList.add(`shift-${shift.shift_type}`);
             dayEl.dataset.currentShift = shift.shift_type;
         } else {
-            dayEl.dataset.currentShift = ""; 
+            dayEl.dataset.currentShift = "";
         }
 
         const todayStr = new Date().toISOString().split('T')[0];
@@ -179,7 +175,6 @@ function renderCalendar(logs, shifts, status) {
             ${shift ? `<small class="shift-tag">${shift.shift_type}</small>` : ''}
             <strong>${mgValue > 0 ? mgValue + 'mg' : '-'}</strong>
         `;
-
         grid.appendChild(dayEl);
     }
 }
@@ -189,21 +184,15 @@ async function toggleShift(dateStr, currentShift) {
     istoggling = true;
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        istoggling = false;
-        return;
-    }
+    if (!user) { istoggling = false; return; }
 
+    // Cycle: None -> M -> A -> None
     let nextType = null;
-    const currentType = currentShift ? currentShift.shift_type : null;
+    const currentType = currentShift ? (typeof currentShift === 'string' ? currentShift : currentShift.shift_type) : null;
 
-    if (!currentType) {
-        nextType = 'M';
-    } else if (currentType === 'M') {
-        nextType = 'A';
-    } else if (currentType === 'A') {
-        nextType = null; 
-    }
+    if (!currentType) nextType = 'M';
+    else if (currentType === 'M') nextType = 'A';
+    else nextType = null;
 
     try {
         if (nextType) {
@@ -223,7 +212,7 @@ async function toggleShift(dateStr, currentShift) {
     } catch (err) {
         console.error(err);
     } finally {
-        setTimeout(() => { istoggling = false; }, 300);
+        setTimeout(() => { istoggling = false; }, 200);
     }
 }
 
@@ -232,7 +221,6 @@ function calculateMgForDate(dateStr, logs, status) {
     targetDate.setHours(0,0,0,0);
     const today = new Date();
     today.setHours(0,0,0,0);
-
     if (targetDate > today) return 0;
 
     if (status.current_mode === 'quit' && status.quit_date) {
@@ -241,60 +229,56 @@ function calculateMgForDate(dateStr, logs, status) {
         if (targetDate >= quitDate) return 0;
     }
 
-    let historicalGaps = [];
+    let gaps = [];
     for (let i = 0; i < logs.length - 1; i++) {
-        const diff = Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date));
-        historicalGaps.push(Math.ceil(diff / 86400000));
+        gaps.push(Math.ceil(Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date)) / 86400000));
     }
-    const projectedDays = historicalGaps.length > 0 ? historicalGaps.reduce((a, b) => a + b) / historicalGaps.length : 7;
+    const projected = gaps.length > 0 ? gaps.reduce((a, b) => a + b) / gaps.length : 7;
 
     for (let i = 0; i < logs.length; i++) {
-        const current = logs[i];
+        const cur = logs[i];
+        const logStart = new Date(cur.start_date);
         const next = logs[i + 1];
-        const logStart = new Date(current.start_date);
-        let diffDays = next ? Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000) : Math.max(projectedDays, 1);
-        if (diffDays === 0) diffDays = 1;
+        let diff = next ? Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000) : Math.max(projected, 1);
+        if (diff === 0) diff = 1;
 
         const logEnd = new Date(logStart);
-        logEnd.setDate(logEnd.getDate() + (diffDays - 1));
+        logEnd.setDate(logEnd.getDate() + (diff - 1));
 
         if (targetDate >= logStart.setHours(0,0,0,0) && targetDate <= logEnd.setHours(23,59,59,999)) {
-            return ((current.quantity_ml * current.strength_mg) / diffDays).toFixed(1);
+            return ((cur.quantity_ml * cur.strength_mg) / diff).toFixed(1);
         }
     }
     return 0;
 }
 
 function updateInsights(logs, shifts) {
-    const stats = { M: { sum: 0, count: 0 }, A: { sum: 0, count: 0 }, Off: { sum: 0, count: 0 }, Total: { sum: 0, count: 0 } };
+    const stats = { M: { s: 0, c: 0 }, A: { s: 0, c: 0 }, Off: { s: 0, c: 0 }, T: { s: 0, c: 0 } };
     const now = new Date();
     now.setHours(0,0,0,0);
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
     for (let i = 1; i <= daysInMonth; i++) {
-        const date = new Date(now.getFullYear(), now.getMonth(), i);
+        const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const date = new Date(dStr);
         if (date > now) continue;
 
-        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const mg = parseFloat(calculateMgForDate(dateStr, logs, { current_mode: 'vaping' }));
-        
+        const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }));
         if (mg > 0) {
-            const shift = shifts.find(s => s.shift_date === dateStr);
+            const shift = shifts.find(s => s.shift_date === dStr);
             const type = shift ? shift.shift_type : 'Off';
-            stats[type].sum += mg;
-            stats[type].count++;
-            stats.Total.sum += mg;
-            stats.Total.count++;
+            stats[type].s += mg; stats[type].c++;
+            stats.T.s += mg; stats.T.c++;
         }
     }
 
-    document.getElementById('avg-m').innerText = (stats.M.sum / (stats.M.count || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-a').innerText = (stats.A.sum / (stats.A.count || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-off').innerText = (stats.Off.sum / (stats.Off.count || 1)).toFixed(1) + 'mg';
-    document.getElementById('avg-daily').innerText = (stats.Total.sum / (stats.Total.count || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-m').innerText = (stats.M.s / (stats.M.c || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-a').innerText = (stats.A.s / (stats.A.c || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-off').innerText = (stats.Off.s / (stats.Off.c || 1)).toFixed(1) + 'mg';
+    document.getElementById('avg-daily').innerText = (stats.T.s / (stats.T.c || 1)).toFixed(1) + 'mg';
 }
 
-document.getElementById('vape-form').addEventListener('submit', async (e) => {
+document.getElementById('vape-form').onsubmit = async (e) => {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -314,6 +298,6 @@ document.getElementById('vape-form').addEventListener('submit', async (e) => {
         document.getElementById('start-date').value = (new Date(n - n.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
         loadData();
     }
-});
+};
 
 init();
