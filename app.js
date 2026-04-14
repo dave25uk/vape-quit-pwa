@@ -119,6 +119,7 @@ function updateUI() {
     }
 }
 
+// Ensure loadData is updated to handle the new insights flow
 async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -127,8 +128,14 @@ async function loadData() {
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
 
-    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' });
+    // We calculate insights first to get the overallAvg, then render the calendar
     updateInsights(logs || [], shifts || []);
+    
+    // Grab the calculated average from the UI to use for calendar rendering
+    const avgText = document.getElementById('avg-daily')?.innerText || "0";
+    const currentAvg = parseFloat(avgText);
+
+    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg);
 }
 
 function renderCalendar(logs, shifts, status) {
@@ -216,7 +223,7 @@ async function toggleShift(dateStr, currentShift) {
     }
 }
 
-function calculateMgForDate(dateStr, logs, status) {
+function calculateMgForDate(dateStr, logs, status, overallAvg = null) {
     const targetDate = new Date(dateStr);
     targetDate.setHours(0,0,0,0);
     const today = new Date();
@@ -229,13 +236,6 @@ function calculateMgForDate(dateStr, logs, status) {
         if (targetDate >= quitDate) return 0;
     }
 
-    // 1. Calculate historical average gap
-    let gaps = [];
-    for (let i = 0; i < logs.length - 1; i++) {
-        gaps.push(Math.ceil(Math.abs(new Date(logs[i+1].start_date) - new Date(logs[i].start_date)) / 86400000));
-    }
-    const historicalAverageGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b) / gaps.length : 7;
-
     for (let i = 0; i < logs.length; i++) {
         const cur = logs[i];
         const logStart = new Date(cur.start_date);
@@ -243,24 +243,33 @@ function calculateMgForDate(dateStr, logs, status) {
         
         let diff;
         if (next) {
-            // Standard gap between two known logs
+            // Completed bottles use actual historical data
             diff = Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000);
         } else {
-            // NEW LOGIC: For the tail end (most recent log till today)
-            // Calculate calendar days passed from start till today
+            // Current active bottle logic
             const startMidnight = new Date(logStart);
             startMidnight.setHours(0,0,0,0);
             const todayMidnight = new Date(today);
             todayMidnight.setHours(0,0,0,0);
             const actualDaysPassed = Math.round((todayMidnight - startMidnight) / 86400000) + 1;
             
-            // We use the larger number of days (which minimizes the mg per day)
-            // if actualDaysPassed > historicalAverageGap, the user is doing better than average.
-            diff = Math.max(historicalAverageGap, actualDaysPassed);
+            const totalNicotine = cur.quantity_ml * cur.strength_mg;
+            const liveAvg = totalNicotine / actualDaysPassed;
+
+            // If we have an overall average (from insights), use the lower of the two
+            // Otherwise, default to a safe 7-day estimate for new users
+            if (overallAvg && overallAvg > 0) {
+                // If liveAvg is 56mg but overallAvg is 32.9mg, use 32.9mg.
+                // Once liveAvg hits 31mg, it will switch to showing 31mg.
+                return Math.min(liveAvg, overallAvg).toFixed(1);
+            } else {
+                // Fallback for when insights aren't calculated yet
+                const fallbackDiff = Math.max(7, actualDaysPassed);
+                return (totalNicotine / fallbackDiff).toFixed(1);
+            }
         }
         
         if (diff < 1) diff = 1;
-
         const logEnd = new Date(logStart);
         logEnd.setDate(logEnd.getDate() + (Math.ceil(diff) - 1));
 
@@ -272,6 +281,22 @@ function calculateMgForDate(dateStr, logs, status) {
 }
 
 function updateInsights(logs, shifts) {
+    // 1. First, calculate the average based on COMPLETED logs only 
+    // to avoid the circular logic of using the average to calculate the average.
+    let totalMg = 0;
+    let totalDays = 0;
+
+    for (let i = 0; i < logs.length - 1; i++) {
+        const cur = logs[i];
+        const next = logs[i+1];
+        const diff = Math.ceil(Math.abs(new Date(next.start_date) - new Date(cur.start_date)) / 86400000);
+        totalMg += (cur.quantity_ml * cur.strength_mg);
+        totalDays += diff;
+    }
+
+    const overallAvg = totalDays > 0 ? (totalMg / totalDays) : 0;
+
+    // 2. Now calculate the specific stats for the UI
     const stats = { M: { s: 0, c: 0 }, A: { s: 0, c: 0 }, Off: { s: 0, c: 0 }, T: { s: 0, c: 0 } };
     const now = new Date();
     now.setHours(0,0,0,0);
@@ -282,7 +307,8 @@ function updateInsights(logs, shifts) {
         const date = new Date(dStr);
         if (date > now) continue;
 
-        const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }));
+        // Pass the overallAvg into the calculation
+        const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }, overallAvg));
         if (mg > 0) {
             const shift = shifts.find(s => s.shift_date === dStr);
             const type = shift ? shift.shift_type : 'Off';
@@ -301,6 +327,8 @@ function updateInsights(logs, shifts) {
     if (offEl) offEl.innerText = (stats.Off.s / (stats.Off.c || 1)).toFixed(1) + 'mg';
     if (dailyEl) dailyEl.innerText = (stats.T.s / (stats.T.c || 1)).toFixed(1) + 'mg';
 }
+
+
 
 const vapeForm = document.getElementById('vape-form');
 if (vapeForm) {
