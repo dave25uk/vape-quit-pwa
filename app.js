@@ -10,9 +10,10 @@ let isCalendarLocked = true;
 let istoggling = false;
 
 async function init() {
-	document.getElementById('log-patch')?.onclick = () => logNRT('patch', 21);
-document.getElementById('log-lozenge')?.onclick = () => logNRT('lozenge', 2);
     const { data: { session } } = await supabase.auth.getSession();
+	document.getElementById('log-patch')?.addEventListener('click', () => logNRT('patch', 21));
+document.getElementById('log-lozenge')?.addEventListener('click', () => logNRT('lozenge', 2));
+	
     if (!session) {
         await supabase.auth.signInAnonymously();
     }
