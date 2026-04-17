@@ -10,51 +10,67 @@ let isCalendarLocked = true;
 let istoggling = false;
 
 async function init() {
+    // 1. Handle Authentication
     const { data: { session } } = await supabase.auth.getSession();
-	document.getElementById('log-patch')?.addEventListener('click', () => logNRT('patch', 21));
-document.getElementById('log-lozenge')?.addEventListener('click', () => logNRT('lozenge', 2));
-	
     if (!session) {
         await supabase.auth.signInAnonymously();
     }
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // 2. Register Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
+    // 3. Get User Status (Mode)
     const { data: status } = await supabase.from('user_status')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
+    
+    // 4. Setup UI & Event Listeners
+    setupDefaultInputs();
+    setupEventListeners();
     updateUI();
     
+    // 5. Initial Data Load
+    loadData();
+}
+
+function setupDefaultInputs() {
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
     const dateInput = document.getElementById('start-date');
     if (dateInput) dateInput.value = localISOTime;
+}
 
-    const prevBtn = document.getElementById('prev-month');
-    const nextBtn = document.getElementById('next-month');
-    
-    if (prevBtn) {
-        prevBtn.onclick = () => {
-            viewDate.setMonth(viewDate.getMonth() - 1);
-            loadData();
-        };
-    }
-    if (nextBtn) {
-        nextBtn.onclick = () => {
-            viewDate.setMonth(viewDate.getMonth() + 1);
-            loadData();
-        };
-    }
+function setupEventListeners() {
+    // Navigation
+    document.getElementById('prev-month')?.addEventListener('click', () => {
+        viewDate.setMonth(viewDate.getMonth() - 1);
+        loadData();
+    });
 
+    document.getElementById('next-month')?.addEventListener('click', () => {
+        viewDate.setMonth(viewDate.getMonth() + 1);
+        loadData();
+    });
+
+    // NRT Logging
+    document.getElementById('log-patch')?.addEventListener('click', () => {
+        const strength = document.getElementById('patch-strength')?.value || 21;
+        logNRT('patch', parseFloat(strength));
+    });
+
+    document.getElementById('log-lozenge')?.addEventListener('click', () => {
+        logNRT('lozenge', 2);
+    });
+
+    // Calendar Lock Toggle
     const lockBtn = document.getElementById('edit-lock-btn');
     if (lockBtn) {
         const handleLock = (e) => {
@@ -62,13 +78,13 @@ document.getElementById('log-lozenge')?.addEventListener('click', () => logNRT('
             isCalendarLocked = !isCalendarLocked;
             lockBtn.innerText = isCalendarLocked ? "🔒" : "🔓";
             lockBtn.style.backgroundColor = isCalendarLocked ? "#f3f4f6" : "#fee2e2";
-            const grid = document.getElementById('calendar-grid');
-            if (grid) grid.classList.toggle('locked', isCalendarLocked);
+            document.getElementById('calendar-grid')?.classList.toggle('locked', isCalendarLocked);
         };
         lockBtn.onclick = handleLock;
         lockBtn.ontouchstart = handleLock;
     }
 
+    // Calendar Grid Interactions
     const grid = document.getElementById('calendar-grid');
     if (grid) {
         const handleGridTap = (e) => {
@@ -83,8 +99,6 @@ document.getElementById('log-lozenge')?.addEventListener('click', () => logNRT('
         grid.onclick = handleGridTap;
         grid.ontouchstart = handleGridTap;
     }
-
-    loadData();
 }
 
 document.getElementById('mode-toggle')?.addEventListener('click', async () => {
@@ -391,12 +405,20 @@ if (vapeForm) {
 
 async function logNRT(type, mg) {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('nicotine_replacements').insert({
+    if (!user) return;
+
+    const { error } = await supabase.from('nicotine_replacements').insert({
         user_id: user.id,
         type: type,
         strength_mg: mg
     });
-    loadData(); // Refresh the calendar to show the new mg
+
+    if (!error) {
+        // This triggers the relay: loadData -> updateInsights -> renderCalendar
+        loadData(); 
+    } else {
+        console.error("Error logging NRT:", error);
+    }
 }
 
 init();

@@ -51,12 +51,23 @@
         </form>
     </div>
 
-    <div id="nrt-form-container" style="display: none;">
-        <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: white; padding: 20px; border-radius: 12px;">
-            <button id="log-patch" style="background: #059669;">Log Patch (21mg)</button>
-            <button id="log-lozenge" style="background: #10b981;">Log Lozenge (2mg)</button>
+<div id="nrt-form-container" style="display: none;">
+    <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; background: white; padding: 20px; border-radius: 12px;">
+        
+        <div style="display: flex; gap: 8px;">
+            <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                <option value="25">25mg Patch</option>
+                <option value="15">15mg Patch</option>
+                <option value="10">10mg Patch</option>
+            </select>
+            <button id="log-patch" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
         </div>
+
+        <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
+
+        <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
     </div>
+</div>
 </section>
     </main>
 
