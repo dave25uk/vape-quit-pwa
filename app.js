@@ -62,8 +62,8 @@ function setupEventListeners() {
 
     // NRT Logging
     document.getElementById('log-patch')?.addEventListener('click', () => {
-        const strength = document.getElementById('patch-strength')?.value || 21;
-        logNRT('patch', parseFloat(strength));
+    const strength = document.getElementById('patch-strength')?.value || 0;
+    logNRT('patch', parseFloat(strength));
     });
 
     document.getElementById('log-lozenge')?.addEventListener('click', () => {
