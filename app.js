@@ -10,6 +10,8 @@ let isCalendarLocked = true;
 let istoggling = false;
 
 async function init() {
+	document.getElementById('log-patch')?.onclick = () => logNRT('patch', 21);
+document.getElementById('log-lozenge')?.onclick = () => logNRT('lozenge', 2);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
         await supabase.auth.signInAnonymously();
@@ -106,16 +108,17 @@ function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
     const toggleBtn = document.getElementById('mode-toggle');
     const titleEl = document.getElementById('app-title');
-    if (!emojiEl || !toggleBtn || !titleEl) return;
-
+const vapeContainer = document.getElementById('vape-form-container');
+    const nrtContainer = document.getElementById('nrt-form-container');
+    
     if (currentMode === 'quit') {
-        titleEl.firstChild.textContent = "Quit Tracker ";
-        emojiEl.innerText = "🚭"; 
-        toggleBtn.innerText = "Switch to Vaping Mode";
+        vapeContainer.style.display = 'none';
+        nrtContainer.style.display = 'block';
+        // ... rest of your existing title/emoji code
     } else {
-        titleEl.firstChild.textContent = "Vape Tracker ";
-        emojiEl.innerText = "💨";
-        toggleBtn.innerText = "Switch to Quit Mode";
+        vapeContainer.style.display = 'block';
+        nrtContainer.style.display = 'none';
+        // ... rest of your existing title/emoji code
     }
 }
 
@@ -124,22 +127,27 @@ async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Add this fetch
+    const { data: nrtLogs } = await supabase.from('nicotine_replacements')
+        .select('*')
+        .eq('user_id', user.id);
+
     const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
 
-    // We calculate insights first to get the overallAvg, then render the calendar
-    updateInsights(logs || [], shifts || []);
+    // Pass nrtLogs to updateInsights
+    updateInsights(logs || [], shifts || [], nrtLogs || []);
     
-    // Grab the calculated average from the UI to use for calendar rendering
     const avgText = document.getElementById('avg-daily')?.innerText || "0";
     const currentAvg = parseFloat(avgText);
 
-    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg);
+    // Pass nrtLogs to renderCalendar
+    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg, nrtLogs || []);
 }
 
 // Add overallAvg to the parameters here
-function renderCalendar(logs, shifts, status, overallAvg) {
+function renderCalendar(logs, shifts, status, overallAvg, nrtLogs){
     const grid = document.getElementById('calendar-grid');
     const monthDisplay = document.getElementById('current-month-display');
     if (!grid || !monthDisplay) return;
@@ -164,7 +172,7 @@ function renderCalendar(logs, shifts, status, overallAvg) {
         dayEl.dataset.date = dateStr;
 
         // Pass overallAvg here so the "cap" works
-        const mgValue = calculateMgForDate(dateStr, logs, status, overallAvg);
+        const mgValue = calculateMgForDate(dateStr, logs, status, overallAvg, nrtLogs);
         const shift = shifts.find(s => s.shift_date === dateStr);
 
         if (shift) {
@@ -220,77 +228,91 @@ async function toggleShift(dateStr, currentShift) {
     }
 }
 
-function calculateMgForDate(dateStr, logs, status, overallAvg = 0) {
+function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = []) {
     const targetDate = new Date(dateStr);
     targetDate.setHours(0, 0, 0, 0);
     const dayStart = targetDate.getTime();
-    const dayEnd = dayStart + 86400000; // +24 hours
+    const dayEnd = dayStart + 86400000;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     if (targetDate > today) return 0;
 
+    let dailyVapeNic = 0;
+    let dailyNRTNic = 0;
+
+    // 1. Calculate NRT Nicotine (Always counts, even in Quit Mode)
+    if (nrtLogs && nrtLogs.length > 0) {
+        nrtLogs.forEach(item => {
+            // created_at is a timestamp, we want to match the specific day
+            const itemDate = new Date(item.created_at).toISOString().split('T')[0];
+            if (itemDate === dateStr) {
+                dailyNRTNic += parseFloat(item.strength_mg || 0);
+            }
+        });
+    }
+
+    // 2. Calculate Vape Nicotine
+    // We only process vapes if we are NOT in quit mode, OR if the target date is BEFORE the quit date
+    let shouldCalcVape = true;
     if (status.current_mode === 'quit' && status.quit_date) {
         const qDate = new Date(status.quit_date);
         qDate.setHours(0, 0, 0, 0);
-        if (targetDate >= qDate) return 0;
+        if (targetDate >= qDate) {
+            shouldCalcVape = false;
+        }
     }
 
-    let dailyTotalNic = 0;
+    if (shouldCalcVape) {
+        for (let i = 0; i < logs.length; i++) {
+            const cur = logs[i];
+            const logStart = new Date(cur.start_date).getTime();
+            let logEnd;
 
-    for (let i = 0; i < logs.length; i++) {
-        const cur = logs[i];
-        const logStart = new Date(cur.start_date).getTime();
-        let logEnd;
+            const next = logs[i + 1];
+            if (next) {
+                logEnd = new Date(next.start_date).getTime();
+            } else {
+                const now = new Date().getTime();
+                const startM = new Date(cur.start_date);
+                startM.setHours(0,0,0,0);
+                const todayM = new Date();
+                todayM.setHours(0,0,0,0);
+                
+                const actualDaysPassed = Math.round((todayM - startM) / 86400000) + 1;
+                const totalNic = cur.quantity_ml * cur.strength_mg;
+                const liveAvg = totalNic / actualDaysPassed;
 
-        const next = logs[i + 1];
-        if (next) {
-            logEnd = new Date(next.start_date).getTime();
-        } else {
-            // For the active bottle, we use "Now" as the end point for the calculation
-            const now = new Date().getTime();
-            const startM = new Date(cur.start_date);
-            startM.setHours(0,0,0,0);
-            const todayM = new Date();
-            todayM.setHours(0,0,0,0);
-            
-            // Logic to respect your "Historical Average" cap
-            const actualDaysPassed = Math.round((todayM - startM) / 86400000) + 1;
-            const totalNic = cur.quantity_ml * cur.strength_mg;
-            const liveAvg = totalNic / actualDaysPassed;
-
-            if (overallAvg > 0 && liveAvg > overallAvg) {
-                // If we are still above the cap, return the cap for the day
-                // and skip the hourly math for the active bottle
-                if (targetDate >= startM.getTime() && targetDate <= todayM.getTime()) {
-                    return overallAvg.toFixed(1);
+                if (overallAvg > 0 && liveAvg > overallAvg) {
+                    if (targetDate >= startM.getTime() && targetDate <= todayM.getTime()) {
+                        dailyVapeNic = overallAvg;
+                        break; // Stop loop, we found the capped value for this day
+                    }
+                    continue;
                 }
-                continue;
+                logEnd = now;
             }
-            
-            logEnd = now;
-        }
 
-        // Calculate Nicotine Per Hour for this bottle
-        const totalHours = (logEnd - logStart) / 3600000;
-        if (totalHours <= 0) continue;
-        const nicPerHour = (cur.quantity_ml * cur.strength_mg) / totalHours;
+            const totalHours = (logEnd - logStart) / 3600000;
+            if (totalHours <= 0) continue;
+            const nicPerHour = (cur.quantity_ml * cur.strength_mg) / totalHours;
 
-        // Find the overlap between this bottle's lifespan and the target day
-        const overlapStart = Math.max(dayStart, logStart);
-        const overlapEnd = Math.min(dayEnd, logEnd);
+            const overlapStart = Math.max(dayStart, logStart);
+            const overlapEnd = Math.min(dayEnd, logEnd);
 
-        if (overlapStart < overlapEnd) {
-            const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
-            dailyTotalNic += (hoursOnThisDay * nicPerHour);
+            if (overlapStart < overlapEnd) {
+                const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
+                dailyVapeNic += (hoursOnThisDay * nicPerHour);
+            }
         }
     }
 
-    return dailyTotalNic > 0 ? dailyTotalNic.toFixed(1) : 0;
+    const totalTotal = parseFloat(dailyVapeNic) + parseFloat(dailyNRTNic);
+    return totalTotal > 0 ? totalTotal.toFixed(1) : 0;
 }
 
-function updateInsights(logs, shifts) {
+function updateInsights(logs, shifts, nrtLogs) {
     // 1. First, calculate the average based on COMPLETED logs only 
     // to avoid the circular logic of using the average to calculate the average.
     let totalMg = 0;
@@ -318,7 +340,7 @@ function updateInsights(logs, shifts) {
         if (date > now) continue;
 
         // Pass the overallAvg into the calculation
-        const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }, overallAvg));
+        const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }, overallAvg, nrtLogs));
         if (mg > 0) {
             const shift = shifts.find(s => s.shift_date === dStr);
             const type = shift ? shift.shift_type : 'Off';
@@ -364,6 +386,16 @@ if (vapeForm) {
             loadData();
         }
     };
+}
+
+async function logNRT(type, mg) {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('nicotine_replacements').insert({
+        user_id: user.id,
+        type: type,
+        strength_mg: mg
+    });
+    loadData(); // Refresh the calendar to show the new mg
 }
 
 init();

@@ -38,19 +38,26 @@
     <div id="calendar-grid"></div>
 </section>
 
-        <section id="entry-section">
-            <form id="vape-form">
-    <div class="input-grid">
-        <input type="number" id="ml" placeholder="Qty (ml)" step="any" required>
-        <input type="number" id="mg" placeholder="Str (mg)" step="any" required>
-        <input type="number" id="cost" placeholder="Cost (£)" step="any" required>
-        <div class="date-container">
-            <input type="datetime-local" id="start-date" required>
+<section id="entry-section">
+    <div id="vape-form-container">
+        <form id="vape-form">
+            <div class="input-grid">
+                <input type="number" id="ml" placeholder="Qty (ml)" step="any">
+                <input type="number" id="mg" placeholder="Str (mg)" step="any">
+                <input type="number" id="cost" placeholder="Cost (£)" step="any">
+                <input type="datetime-local" id="start-date">
+            </div>
+            <button type="submit" id="log-button">Log New Vape</button>
+        </form>
+    </div>
+
+    <div id="nrt-form-container" style="display: none;">
+        <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: white; padding: 20px; border-radius: 12px;">
+            <button id="log-patch" style="background: #059669;">Log Patch (21mg)</button>
+            <button id="log-lozenge" style="background: #10b981;">Log Lozenge (2mg)</button>
         </div>
     </div>
-    <button type="submit" id="log-button">Log New Vape</button>
-</form>
-        </section>
+</section>
     </main>
 
     <script type="module" src="app.js"></script>
