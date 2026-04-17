@@ -138,13 +138,13 @@ async function loadData() {
     renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg);
 }
 
-function renderCalendar(logs, shifts, status) {
+// Add overallAvg to the parameters here
+function renderCalendar(logs, shifts, status, overallAvg) {
     const grid = document.getElementById('calendar-grid');
     const monthDisplay = document.getElementById('current-month-display');
     if (!grid || !monthDisplay) return;
     
     grid.innerHTML = '';
-
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     monthDisplay.innerText = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -154,9 +154,7 @@ function renderCalendar(logs, shifts, status) {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     for (let p = 0; p < padding; p++) {
-        const s = document.createElement('div');
-        s.className = 'calendar-day spacer';
-        grid.appendChild(s);
+        grid.appendChild(Object.assign(document.createElement('div'), {className: 'calendar-day spacer'}));
     }
 
     for (let i = 1; i <= daysInMonth; i++) {
@@ -165,14 +163,13 @@ function renderCalendar(logs, shifts, status) {
         dayEl.className = 'calendar-day';
         dayEl.dataset.date = dateStr;
 
-        const mgValue = calculateMgForDate(dateStr, logs, status);
+        // Pass overallAvg here so the "cap" works
+        const mgValue = calculateMgForDate(dateStr, logs, status, overallAvg);
         const shift = shifts.find(s => s.shift_date === dateStr);
 
         if (shift) {
             dayEl.classList.add(`shift-${shift.shift_type}`);
             dayEl.dataset.currentShift = shift.shift_type;
-        } else {
-            dayEl.dataset.currentShift = "";
         }
 
         const todayStr = new Date().toISOString().split('T')[0];
