@@ -225,54 +225,72 @@ async function toggleShift(dateStr, currentShift) {
 
 function calculateMgForDate(dateStr, logs, status, overallAvg = 0) {
     const targetDate = new Date(dateStr);
-    targetDate.setHours(0,0,0,0);
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    targetDate.setHours(0, 0, 0, 0);
+    const dayStart = targetDate.getTime();
+    const dayEnd = dayStart + 86400000; // +24 hours
     
-    // 1. Never show data for the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     if (targetDate > today) return 0;
 
-    // 2. PRIORITY: If in Quit Mode, check the date
     if (status.current_mode === 'quit' && status.quit_date) {
         const qDate = new Date(status.quit_date);
-        qDate.setHours(0,0,0,0);
-        // If the calendar day is on or after the day you quit, show 0mg
+        qDate.setHours(0, 0, 0, 0);
         if (targetDate >= qDate) return 0;
     }
 
-    // 3. Process logs
+    let dailyTotalNic = 0;
+
     for (let i = 0; i < logs.length; i++) {
         const cur = logs[i];
-        const logStart = new Date(cur.start_date);
+        const logStart = new Date(cur.start_date).getTime();
+        let logEnd;
+
         const next = logs[i + 1];
-        
-        let diff;
         if (next) {
-            diff = Math.ceil(Math.abs(new Date(next.start_date) - logStart) / 86400000);
+            logEnd = new Date(next.start_date).getTime();
         } else {
-            const startM = new Date(logStart); startM.setHours(0,0,0,0);
-            const todayM = new Date(today); todayM.setHours(0,0,0,0);
-            const actualDays = Math.round((todayM - startM) / 86400000) + 1;
+            // For the active bottle, we use "Now" as the end point for the calculation
+            const now = new Date().getTime();
+            const startM = new Date(cur.start_date);
+            startM.setHours(0,0,0,0);
+            const todayM = new Date();
+            todayM.setHours(0,0,0,0);
             
+            // Logic to respect your "Historical Average" cap
+            const actualDaysPassed = Math.round((todayM - startM) / 86400000) + 1;
             const totalNic = cur.quantity_ml * cur.strength_mg;
-            const liveAvg = totalNic / actualDays;
+            const liveAvg = totalNic / actualDaysPassed;
 
-            if (overallAvg > 0) {
-                const result = Math.min(liveAvg, overallAvg);
-                return result.toFixed(1);
+            if (overallAvg > 0 && liveAvg > overallAvg) {
+                // If we are still above the cap, return the cap for the day
+                // and skip the hourly math for the active bottle
+                if (targetDate >= startM.getTime() && targetDate <= todayM.getTime()) {
+                    return overallAvg.toFixed(1);
+                }
+                continue;
             }
-            diff = Math.max(7, actualDays);
+            
+            logEnd = now;
         }
-        
-        if (diff < 1) diff = 1;
-        const logEnd = new Date(logStart);
-        logEnd.setDate(logEnd.getDate() + (Math.ceil(diff) - 1));
 
-        if (targetDate >= logStart.setHours(0,0,0,0) && targetDate <= logEnd.setHours(23,59,59,999)) {
-            return ((cur.quantity_ml * cur.strength_mg) / diff).toFixed(1);
+        // Calculate Nicotine Per Hour for this bottle
+        const totalHours = (logEnd - logStart) / 3600000;
+        if (totalHours <= 0) continue;
+        const nicPerHour = (cur.quantity_ml * cur.strength_mg) / totalHours;
+
+        // Find the overlap between this bottle's lifespan and the target day
+        const overlapStart = Math.max(dayStart, logStart);
+        const overlapEnd = Math.min(dayEnd, logEnd);
+
+        if (overlapStart < overlapEnd) {
+            const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
+            dailyTotalNic += (hoursOnThisDay * nicPerHour);
         }
     }
-    return 0;
+
+    return dailyTotalNic > 0 ? dailyTotalNic.toFixed(1) : 0;
 }
 
 function updateInsights(logs, shifts) {
