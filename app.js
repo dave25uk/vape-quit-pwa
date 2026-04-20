@@ -461,15 +461,43 @@ async function renderHistory() {
         const label = isVape ? `Vape: ${item.quantity_ml}ml (${item.strength_mg}mg)` : `${item.type}: ${item.strength_mg}mg`;
 
         html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 4px solid ${color};">
-                <div style="line-height: 1.4;">
-                    <span style="font-weight: 600; font-size: 0.95rem;">${label}</span><br>
-                    <small style="color: #6b7280;">${dateStr}</small>
+            <div id="row-${item.id}" style="display: flex; flex-direction: column; background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 4px solid ${color}; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="line-height: 1.4;">
+                        <span style="font-weight: 600; font-size: 0.95rem;">${label}</span><br>
+                        <small style="color: #6b7280;">${dateStr}</small>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="showEditForm('${item.id}')" 
+                                style="background: #eef2ff; border: none; color: #4338ca; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 500;">
+                            Edit
+                        </button>
+                        <button onclick="deleteEntry('${table}', '${item.id}')" 
+                                style="background: #fee2e2; border: none; color: #b91c1c; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: 500;">
+                            Del
+                        </button>
+                    </div>
                 </div>
-                <button onclick="deleteEntry('${table}', '${item.id}')" 
-                        style="background: #fee2e2; border: none; color: #b91c1c; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 500;">
-                    Delete
-                </button>
+
+                <div id="edit-form-${item.id}" style="display: none; background: white; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; font-size: 0.85rem;">
+                        ${isVape ? `
+                            <label>ml: <input type="number" step="0.1" id="edit-qty-${item.id}" value="${item.quantity_ml}" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                            <label>£: <input type="number" step="0.01" id="edit-cost-${item.id}" value="${item.cost || 0}" style="width: 55px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                        ` : ''}
+                        <label>mg: <input type="number" step="0.1" id="edit-mg-${item.id}" value="${item.strength_mg}" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="saveEdit('${table}', '${item.id}', ${isVape})" 
+                                style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
+                            Save
+                        </button>
+                        <button onclick="renderHistory()" 
+                                style="background: #f3f4f6; color: #374151; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
     });
@@ -477,18 +505,38 @@ async function renderHistory() {
     historyList.innerHTML = html || '<p style="text-align: center; color: #9ca3af; padding: 20px;">No recent entries.</p>';
 }
 
-// Global delete function
-window.deleteEntry = async function(table, id) {
-    if (!confirm("Delete this entry? Your daily averages will update immediately.")) return;
+// Support functions for Editing
+window.showEditForm = function(id) {
+    // Hide any other open edit forms to prevent clutter
+    document.querySelectorAll('[id^="edit-form-"]').forEach(f => f.style.display = 'none');
+    // Show this one
+    const form = document.getElementById(`edit-form-${id}`);
+    if (form) form.style.display = 'block';
+};
 
-    const { error } = await supabase.from(table).delete().eq('id', id);
+window.saveEdit = async function(table, id, isVape) {
+    const mg = parseFloat(document.getElementById(`edit-mg-${id}`).value);
+    let updateData = { strength_mg: mg };
+
+    if (isVape) {
+        updateData.quantity_ml = parseFloat(document.getElementById(`edit-qty-${item.id}`)?.value || 0);
+        updateData.cost = parseFloat(document.getElementById(`edit-cost-${item.id}`)?.value || 0);
+    }
+
+    const { error } = await supabase.from(table).update(updateData).eq('id', id);
 
     if (!error) {
-        // Refresh everything
-        loadData();
+        loadData(); // Re-fetch and re-render everything
     } else {
-        alert("Failed to delete: " + error.message);
+        alert("Update failed: " + error.message);
     }
+};
+
+window.deleteEntry = async function(table, id) {
+    if (!confirm("Delete this entry? Your daily averages will update immediately.")) return;
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (!error) loadData();
+    else alert("Failed to delete: " + error.message);
 };
 
 init();
