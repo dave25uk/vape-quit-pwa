@@ -431,7 +431,6 @@ async function logNRT(type, mg) {
         console.error("Error logging NRT:", error);
     }
 }
-
 async function renderHistory() {
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
@@ -439,13 +438,13 @@ async function renderHistory() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    // Fetch recent vapes and NRT
+    // 1. Fetch the 10 most recent entries from both tables
     const [vapeRes, nrtRes] = await Promise.all([
         supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).limit(10),
         supabase.from('nicotine_replacements').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
     ]);
 
-    // Combine and sort by date
+    // 2. Combine them into one list and sort by date (newest first)
     const combined = [
         ...(vapeRes.data || []).map(v => ({ ...v, sortDate: new Date(v.start_date), displayType: 'vape' })),
         ...(nrtRes.data || []).map(n => ({ ...n, sortDate: new Date(n.created_at), displayType: 'nrt' }))
@@ -453,6 +452,7 @@ async function renderHistory() {
 
     let html = '';
 
+    // 3. Build the HTML for the list
     combined.forEach(item => {
         const dateStr = item.sortDate.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
         const isVape = item.displayType === 'vape';
@@ -461,7 +461,7 @@ async function renderHistory() {
         const label = isVape ? `Vape: ${item.quantity_ml}ml (${item.strength_mg}mg)` : `${item.type}: ${item.strength_mg}mg`;
 
         html += `
-            <div id="row-${item.id}" style="display: flex; flex-direction: column; background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 4px solid ${color}; gap: 8px;">
+            <div id="row-${item.id}" style="display: flex; flex-direction: column; background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 4px solid ${color}; gap: 8px; margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div style="line-height: 1.4;">
                         <span style="font-weight: 600; font-size: 0.95rem;">${label}</span><br>
@@ -492,7 +492,7 @@ async function renderHistory() {
                                 style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
                             Save
                         </button>
-                        <button onclick="renderHistory()" 
+                        <button onclick="document.getElementById('edit-form-${item.id}').style.display='none'" 
                                 style="background: #f3f4f6; color: #374151; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
                             Cancel
                         </button>
@@ -505,11 +505,12 @@ async function renderHistory() {
     historyList.innerHTML = html || '<p style="text-align: center; color: #9ca3af; padding: 20px;">No recent entries.</p>';
 }
 
-// Support functions for Editing
+// --- GLOBAL EDIT HELPERS ---
+
 window.showEditForm = function(id) {
-    // Hide any other open edit forms to prevent clutter
+    // Close any other open edit forms
     document.querySelectorAll('[id^="edit-form-"]').forEach(f => f.style.display = 'none');
-    // Show this one
+    // Open the one we clicked
     const form = document.getElementById(`edit-form-${id}`);
     if (form) form.style.display = 'block';
 };
@@ -519,14 +520,15 @@ window.saveEdit = async function(table, id, isVape) {
     let updateData = { strength_mg: mg };
 
     if (isVape) {
-        updateData.quantity_ml = parseFloat(document.getElementById(`edit-qty-${item.id}`)?.value || 0);
-        updateData.cost = parseFloat(document.getElementById(`edit-cost-${item.id}`)?.value || 0);
+        updateData.quantity_ml = parseFloat(document.getElementById(`edit-qty-${id}`)?.value || 0);
+        updateData.cost = parseFloat(document.getElementById(`edit-cost-${id}`)?.value || 0);
     }
 
     const { error } = await supabase.from(table).update(updateData).eq('id', id);
 
     if (!error) {
-        loadData(); // Re-fetch and re-render everything
+        // Refresh data (which refreshes the calendar and history list)
+        loadData();
     } else {
         alert("Update failed: " + error.message);
     }
