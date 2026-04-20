@@ -36,6 +36,7 @@
     </div>
     
     <div id="calendar-grid"></div>
+	
 </section>
 
 <section id="entry-section">
@@ -68,6 +69,18 @@
         <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
     </div>
 </div>
+<details id="history-drawer" style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
+    <summary style="padding: 15px; cursor: pointer; font-weight: 600; color: #374151; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+        <span>📜 View Recent Entry History</span>
+        <span style="font-size: 0.8rem; color: #6b7280;">(Tap to expand/hide)</span>
+    </summary>
+    
+    <div style="padding: 0 15px 15px 15px; border-top: 1px solid #f3f4f6;">
+        <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Entries are shown with the most recent first.</p>
+        <div id="history-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            </div>
+    </div>
+</details>
 </section>
     </main>
 

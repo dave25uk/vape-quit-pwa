@@ -169,6 +169,7 @@ async function loadData() {
 
     // Pass nrtLogs to renderCalendar
     renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg, nrtLogs || []);
+	renderHistory();
 }
 
 // Add overallAvg to the parameters here
@@ -430,5 +431,64 @@ async function logNRT(type, mg) {
         console.error("Error logging NRT:", error);
     }
 }
+
+async function renderHistory() {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    // Fetch recent vapes and NRT
+    const [vapeRes, nrtRes] = await Promise.all([
+        supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: false }).limit(10),
+        supabase.from('nicotine_replacements').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+    ]);
+
+    // Combine and sort by date
+    const combined = [
+        ...(vapeRes.data || []).map(v => ({ ...v, sortDate: new Date(v.start_date), displayType: 'vape' })),
+        ...(nrtRes.data || []).map(n => ({ ...n, sortDate: new Date(n.created_at), displayType: 'nrt' }))
+    ].sort((a, b) => b.sortDate - a.sortDate).slice(0, 10);
+
+    let html = '';
+
+    combined.forEach(item => {
+        const dateStr = item.sortDate.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const isVape = item.displayType === 'vape';
+        const color = isVape ? '#6366f1' : '#10b981';
+        const table = isVape ? 'vape_logs' : 'nicotine_replacements';
+        const label = isVape ? `Vape: ${item.quantity_ml}ml (${item.strength_mg}mg)` : `${item.type}: ${item.strength_mg}mg`;
+
+        html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f9fafb; padding: 12px; border-radius: 8px; border-left: 4px solid ${color};">
+                <div style="line-height: 1.4;">
+                    <span style="font-weight: 600; font-size: 0.95rem;">${label}</span><br>
+                    <small style="color: #6b7280;">${dateStr}</small>
+                </div>
+                <button onclick="deleteEntry('${table}', '${item.id}')" 
+                        style="background: #fee2e2; border: none; color: #b91c1c; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 500;">
+                    Delete
+                </button>
+            </div>
+        `;
+    });
+
+    historyList.innerHTML = html || '<p style="text-align: center; color: #9ca3af; padding: 20px;">No recent entries.</p>';
+}
+
+// Global delete function
+window.deleteEntry = async function(table, id) {
+    if (!confirm("Delete this entry? Your daily averages will update immediately.")) return;
+
+    const { error } = await supabase.from(table).delete().eq('id', id);
+
+    if (!error) {
+        // Refresh everything
+        loadData();
+    } else {
+        alert("Failed to delete: " + error.message);
+    }
+};
 
 init();
