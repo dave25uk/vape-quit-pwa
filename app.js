@@ -152,24 +152,38 @@ async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Add this fetch
-    const { data: nrtLogs } = await supabase.from('nicotine_replacements')
-        .select('*')
-        .eq('user_id', user.id);
-
+    // Fetch ALL logs to ensure averages are accurate across month boundaries
+    const { data: nrtLogs } = await supabase.from('nicotine_replacements').select('*').eq('user_id', user.id);
     const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
 
-    // Pass nrtLogs to updateInsights
-    updateInsights(logs || [], shifts || [], nrtLogs || []);
-    
-    const avgText = document.getElementById('avg-daily')?.innerText || "0";
-    const currentAvg = parseFloat(avgText);
+    // 1. Calculate the true rolling average first
+    const overallAvg = calculateRollingAverage(logs || []);
 
-    // Pass nrtLogs to renderCalendar
-    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, currentAvg, nrtLogs || []);
-	renderHistory();
+    // 2. Update the Insights Bar (Rolling 30 Days)
+    updateInsights(logs || [], shifts || [], nrtLogs || [], overallAvg);
+    
+    // 3. Render the Calendar
+    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, overallAvg, nrtLogs || []);
+    renderHistory();
+}
+function calculateRollingAverage(logs) {
+    if (logs.length < 2) return 0;
+    let totalMg = 0;
+    let totalDays = 0;
+
+    // Use only completed logs for the baseline average
+    for (let i = 0; i < logs.length - 1; i++) {
+        const cur = logs[i];
+        const next = logs[i+1];
+        const diff = (new Date(next.start_date) - new Date(cur.start_date)) / 86400000;
+        if (diff > 0) {
+            totalMg += (cur.quantity_ml * cur.strength_mg);
+            totalDays += diff;
+        }
+    }
+    return totalDays > 0 ? (totalMg / totalDays) : 0;
 }
 
 // Add overallAvg to the parameters here
@@ -262,35 +276,26 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
     if (targetDate > today) return 0;
 
     let dailyVapeNic = 0;
     let dailyNRTNic = 0;
 
-    // 1. Calculate NRT Nicotine (Always counts, even in Quit Mode)
-    if (nrtLogs && nrtLogs.length > 0) {
-        nrtLogs.forEach(item => {
-            // created_at is a timestamp, we want to match the specific day
-            const itemDate = new Date(item.created_at).toISOString().split('T')[0];
-            if (itemDate === dateStr) {
-                dailyNRTNic += parseFloat(item.strength_mg || 0);
-            }
-        });
-    }
+    // 1. NRT Calculation
+    nrtLogs.forEach(item => {
+        const itemDate = new Date(item.created_at).toISOString().split('T')[0];
+        if (itemDate === dateStr) dailyNRTNic += parseFloat(item.strength_mg || 0);
+    });
 
-    // 2. Calculate Vape Nicotine
-    // We only process vapes if we are NOT in quit mode, OR if the target date is BEFORE the quit date
-    let shouldCalcVape = true;
+    // 2. Vape Calculation
+    let isQuit = false;
     if (status.current_mode === 'quit' && status.quit_date) {
         const qDate = new Date(status.quit_date);
         qDate.setHours(0, 0, 0, 0);
-        if (targetDate >= qDate) {
-            shouldCalcVape = false;
-        }
+        if (targetDate >= qDate) isQuit = true;
     }
 
-    if (shouldCalcVape) {
+    if (!isQuit) {
         for (let i = 0; i < logs.length; i++) {
             const cur = logs[i];
             const logStart = new Date(cur.start_date).getTime();
@@ -300,26 +305,27 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
             if (next) {
                 logEnd = new Date(next.start_date).getTime();
             } else {
-                const now = new Date().getTime();
-                const startM = new Date(cur.start_date);
-                startM.setHours(0,0,0,0);
-                const todayM = new Date();
-                todayM.setHours(0,0,0,0);
+                // ACTIVE VAPE LOGIC
+                const startMidnight = new Date(cur.start_date);
+                startMidnight.setHours(0,0,0,0);
                 
-                const actualDaysPassed = Math.round((todayM - startM) / 86400000) + 1;
-                const totalNic = cur.quantity_ml * cur.strength_mg;
-                const liveAvg = totalNic / actualDaysPassed;
+                // Days elapsed since start (1-indexed)
+                const msPassed = today.getTime() - startMidnight.getTime();
+                const daysSoFar = Math.floor(msPassed / 86400000) + 1;
+                
+                const totalNicInBottle = cur.quantity_ml * cur.strength_mg;
+                const liveDailyAvg = totalNicInBottle / daysSoFar;
 
-                if (overallAvg > 0 && liveAvg > overallAvg) {
-                    if (targetDate >= startM.getTime() && targetDate <= todayM.getTime()) {
-                        dailyVapeNic = overallAvg;
-                        break; // Stop loop, we found the capped value for this day
-                    }
-                    continue;
+                // If we are currently looking at a day covered by this active vape
+                if (targetDate >= startMidnight.getTime() && targetDate <= today.getTime()) {
+                    // Use the lower of the two: the overall average or the declining live average
+                    dailyVapeNic = (overallAvg > 0) ? Math.min(overallAvg, liveDailyAvg) : liveDailyAvg;
+                    break; 
                 }
-                logEnd = now;
+                continue;
             }
 
+            // COMPLETED VAPE LOGIC
             const totalHours = (logEnd - logStart) / 3600000;
             if (totalHours <= 0) continue;
             const nicPerHour = (cur.quantity_ml * cur.strength_mg) / totalHours;
@@ -334,39 +340,22 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
         }
     }
 
-    const totalTotal = parseFloat(dailyVapeNic) + parseFloat(dailyNRTNic);
-    return totalTotal > 0 ? totalTotal.toFixed(1) : 0;
+    const total = dailyVapeNic + dailyNRTNic;
+    return total > 0 ? total.toFixed(1) : 0;
 }
 
-function updateInsights(logs, shifts, nrtLogs) {
-    // 1. First, calculate the average based on COMPLETED logs only 
-    // to avoid the circular logic of using the average to calculate the average.
-    let totalMg = 0;
-    let totalDays = 0;
-
-    for (let i = 0; i < logs.length - 1; i++) {
-        const cur = logs[i];
-        const next = logs[i+1];
-        const diff = Math.ceil(Math.abs(new Date(next.start_date) - new Date(cur.start_date)) / 86400000);
-        totalMg += (cur.quantity_ml * cur.strength_mg);
-        totalDays += diff;
-    }
-
-    const overallAvg = totalDays > 0 ? (totalMg / totalDays) : 0;
-
-    // 2. Now calculate the specific stats for the UI
+function updateInsights(logs, shifts, nrtLogs, overallAvg) {
     const stats = { M: { s: 0, c: 0 }, A: { s: 0, c: 0 }, Off: { s: 0, c: 0 }, T: { s: 0, c: 0 } };
+    
     const now = new Date();
-    now.setHours(0,0,0,0);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    // Loop through the last 30 days regardless of what month the calendar is showing
+    for (let i = 0; i < 30; i++) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const dStr = d.toISOString().split('T')[0];
 
-    for (let i = 1; i <= daysInMonth; i++) {
-        const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const date = new Date(dStr);
-        if (date > now) continue;
-
-        // Pass the overallAvg into the calculation
         const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: 'vaping' }, overallAvg, nrtLogs));
+        
         if (mg > 0) {
             const shift = shifts.find(s => s.shift_date === dStr);
             const type = shift ? shift.shift_type : 'Off';
@@ -375,15 +364,15 @@ function updateInsights(logs, shifts, nrtLogs) {
         }
     }
 
-    const mEl = document.getElementById('avg-m');
-    const aEl = document.getElementById('avg-a');
-    const offEl = document.getElementById('avg-off');
-    const dailyEl = document.getElementById('avg-daily');
+    const updateEl = (id, val, count) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = (count > 0 ? (val / count).toFixed(1) : "0") + 'mg';
+    };
 
-    if (mEl) mEl.innerText = (stats.M.s / (stats.M.c || 1)).toFixed(1) + 'mg';
-    if (aEl) aEl.innerText = (stats.A.s / (stats.A.c || 1)).toFixed(1) + 'mg';
-    if (offEl) offEl.innerText = (stats.Off.s / (stats.Off.c || 1)).toFixed(1) + 'mg';
-    if (dailyEl) dailyEl.innerText = (stats.T.s / (stats.T.c || 1)).toFixed(1) + 'mg';
+    updateEl('avg-m', stats.M.s, stats.M.c);
+    updateEl('avg-a', stats.A.s, stats.A.c);
+    updateEl('avg-off', stats.Off.s, stats.Off.c);
+    updateEl('avg-daily', stats.T.s, stats.T.c);
 }
 
 
