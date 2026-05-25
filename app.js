@@ -8,6 +8,7 @@ let currentMode = 'vaping';
 let viewDate = new Date(); 
 let isCalendarLocked = true; 
 let istoggling = false;
+let myChart = null; 
 
 async function init() {
     // 1. Handle Authentication
@@ -99,6 +100,20 @@ function setupEventListeners() {
         grid.onclick = handleGridTap;
         grid.ontouchstart = handleGridTap;
     }
+
+    // Modal Visibility Handlers
+    const chartModal = document.getElementById('chart-modal');
+    document.getElementById('chart-toggle-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (chartModal) chartModal.style.display = 'flex';
+    });
+    document.getElementById('close-chart-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (chartModal) chartModal.style.display = 'none';
+    });
+    chartModal?.addEventListener('click', (e) => {
+        if (e.target === chartModal) chartModal.style.display = 'none';
+    });
 }
 
 document.getElementById('mode-toggle')?.addEventListener('click', async () => {
@@ -154,15 +169,13 @@ async function loadData() {
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
 
-    // 1. Calculate rolling average limited to a 30-day window
     const overallAvg = calculateRollingAverage(logs || []);
 
-    // 2. Update the Insights Bar (Rolling 30 Days)
     updateInsights(logs || [], shifts || [], nrtLogs || [], overallAvg);
-    
-    // 3. Render the Calendar
     renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, overallAvg, nrtLogs || []);
     renderHistory();
+    
+    generateHistoricalChart(logs || [], status || { current_mode: 'vaping' }, overallAvg, nrtLogs || []);
 }
 
 function calculateRollingAverage(logs) {
@@ -191,6 +204,78 @@ function calculateRollingAverage(logs) {
         }
     }
     return totalDays > 0 ? (totalMg / totalDays) : 0;
+}
+
+function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
+    if (!logs || logs.length === 0) return;
+
+    const firstDate = new Date(logs[0].start_date);
+    firstDate.setHours(0,0,0,0);
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const labels = [];
+    const dailyRawValues = [];
+
+    let currentIterDate = new Date(firstDate);
+    while (currentIterDate <= today) {
+        const dStr = currentIterDate.toISOString().split('T')[0];
+        const displayLabel = currentIterDate.toLocaleDateString([], { day: '2-digit', month: 'short' });
+        labels.push(displayLabel);
+
+        const dailyMg = parseFloat(calculateMgForDate(dStr, logs, status, overallAvg, nrtLogs));
+        dailyRawValues.push(dailyMg);
+
+        currentIterDate.setDate(currentIterDate.getDate() + 1);
+    }
+
+    const smoothedValues = dailyRawValues.map((val, idx) => {
+        let sum = val;
+        let count = 1;
+
+        if (idx >= 1) { sum += dailyRawValues[idx - 1]; count++; }
+        if (idx >= 2) { sum += dailyRawValues[idx - 2]; count++; }
+
+        return parseFloat((sum / count).toFixed(1));
+    });
+
+    const ctx = document.getElementById('usageChart');
+    if (!ctx) return;
+
+    if (myChart) {
+        myChart.data.labels = labels;
+        myChart.data.datasets[0].data = smoothedValues;
+        myChart.update();
+    } else {
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '3-Day Rolling Avg (mg)',
+                    data: smoothedValues,
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointRadius: smoothedValues.length > 60 ? 0 : 2, 
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Nicotine (mg)', font: { size: 11 } } },
+                    x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
 }
 
 function renderCalendar(logs, shifts, status, overallAvg, nrtLogs){
