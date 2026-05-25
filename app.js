@@ -233,12 +233,26 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     const smoothedValues = dailyRawValues.map((val, idx) => {
         let sum = val;
         let count = 1;
-
         if (idx >= 1) { sum += dailyRawValues[idx - 1]; count++; }
         if (idx >= 2) { sum += dailyRawValues[idx - 2]; count++; }
-
         return parseFloat((sum / count).toFixed(1));
     });
+
+    const n = dailyRawValues.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < n; i++) {
+        sumX += i;
+        sumY += dailyRawValues[i];
+        sumXY += i * dailyRawValues[i];
+        sumXX += i * i;
+    }
+    const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
+    const intercept = n > 1 ? (sumY - slope * sumX) / n : dailyRawValues[0] || 0;
+
+    const trendLineValues = [];
+    for (let i = 0; i < n; i++) {
+        trendLineValues.push(parseFloat((slope * i + intercept).toFixed(1)));
+    }
 
     const ctx = document.getElementById('usageChart');
     if (!ctx) return;
@@ -246,22 +260,35 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     if (myChart) {
         myChart.data.labels = labels;
         myChart.data.datasets[0].data = smoothedValues;
+        myChart.data.datasets[1].data = trendLineValues;
         myChart.update();
     } else {
         myChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
-                datasets: [{
-                    label: '3-Day Rolling Avg (mg)',
-                    data: smoothedValues,
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    pointRadius: smoothedValues.length > 60 ? 0 : 2, 
-                    fill: true
-                }]
+                datasets: [
+                    {
+                        label: '3-Day Rolling Avg',
+                        data: smoothedValues,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.05)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: smoothedValues.length > 60 ? 0 : 2, 
+                        fill: true
+                    },
+                    {
+                        label: 'Overall Trend',
+                        data: trendLineValues,
+                        borderColor: '#ef4444',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -271,7 +298,11 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                     x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } }
                 },
                 plugins: {
-                    legend: { display: false }
+                    legend: { 
+                        display: true, 
+                        position: 'top',
+                        labels: { boxWidth: 12, font: { size: 10 } }
+                    }
                 }
             }
         });
