@@ -3,119 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nicotine Tracker</title>
+    <title>Vape/Quit Tracker</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
-
     <header>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <h1 id="app-title" style="margin: 0;">Vape Tracker <span id="status-emoji">💨</span></h1>
-            <button id="chart-toggle-btn" style="width: auto; background: transparent; font-size: 1.4rem; padding: 4px; cursor: pointer; border-radius: 6px; border: none;">📊</button>
-        </div>
+        <h1 id="app-title">Vape Tracker <span id="status-emoji"></span></h1>
         <button id="mode-toggle">Switch to Quit Mode</button>
     </header>
 
-    <main>
-        <section class="insights-bar">
-            <div class="insight-card">
-                <span class="insight-label">Daily Avg</span>
-                <span class="insight-value" id="avg-daily">0mg</span>
-            </div>
-            <div class="insight-card shift-m-indicator">
-                <span class="insight-label">Morn Shift</span>
-                <span class="insight-value" id="avg-m">0mg</span>
-            </div>
-            <div class="insight-card shift-a-indicator">
-                <span class="insight-label">Aft Shift</span>
-                <span class="insight-value" id="avg-a">0mg</span>
-            </div>
-            <div class="insight-card shift-off-indicator">
-                <span class="insight-label">Days Off</span>
-                <span class="insight-value" id="avg-off">0mg</span>
-            </div>
+    <main id="app-content">
+        <section id="insights-bar">
+            <div class="insight-item">Work (M) Avg: <strong id="avg-m">0mg</strong></div>
+            <div class="insight-item">Work (A) Avg: <strong id="avg-a">0mg</strong></div>
+            <div class="insight-item">Off-Day Avg: <strong id="avg-off">0mg</strong></div>
+			<div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
         </section>
 
-        <section class="logging-section">
-            <div id="vape-form-container">
-                <h3>Log New Bottle</h3>
-                <form id="vape-form">
-                    <div class="form-group-row">
-                        <div class="form-group">
-                            <label for="ml">Quantity (ml)</label>
-                            <input type="number" id="ml" step="0.1" required placeholder="e.g. 10">
-                        </div>
-                        <div class="form-group">
-                            <label for="mg">Strength (mg/ml)</label>
-                            <input type="number" id="mg" step="0.1" required placeholder="e.g. 20">
-                        </div>
-                        <div class="form-group">
-                            <label for="cost">Cost (£)</label>
-                            <input type="number" id="cost" step="0.01" required placeholder="e.g. 3.49">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="start-date">Start Date & Time</label>
-                        <input type="datetime-local" id="start-date" required>
-                    </div>
-                    <button type="submit" class="btn-submit">Start New Bottle</button>
-                </form>
-            </div>
-
-            <div id="nrt-form-container" style="display: none;">
-                <h3>Log Nicotine Replacement</h3>
-                <div class="nrt-button-grid">
-                    <div class="nrt-card">
-                        <label for="patch-strength">Patch Strength (mg)</label>
-                        <select id="patch-strength">
-                            <option value="21">21mg (Step 1)</option>
-                            <option value="14">14mg (Step 2)</option>
-                            <option value="7">7mg (Step 3)</option>
-                        </select>
-                        <button id="log-patch" class="btn-nrt">Apply Patch</button>
-                    </div>
-                    <div class="nrt-card lozenge-card">
-                        <span>Lozenge / Gum (2mg)</span>
-                        <button id="log-lozenge" class="btn-nrt">Log 1 Piece</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="calendar-section">
-            <div class="calendar-controls">
-                <button id="prev-month">&lt;</button>
-                <h2 id="current-month-display">Month Year</h2>
-                <button id="next-month">&gt;</button>
-                <button id="edit-lock-btn" title="Toggle Shift Edit Mode" style="width: auto; padding: 4px 10px; margin-left: 8px;">🔒</button>
-            </div>
-
-            <div class="calendar-weekdays">
-                <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-            </div>
-
-            <div id="calendar-grid" class="calendar-grid locked"></div>
-        </section>
-
-        <section class="history-section">
-            <h3>Recent Activity</h3>
-            <div id="history-list" class="history-list">
-                </div>
-        </section>
-    </main>
-
-    <div id="chart-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
-        <div style="background: white; width: 100%; max-width: 600px; border-radius: 16px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: #374151; font-family: inherit;">3-Day Rolling Average Trend</h3>
-                <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
-            </div>
-            <div style="position: relative; width: 100%; height: 300px;">
-                <canvas id="usageChart"></canvas>
-            </div>
-        </div>
+        <section id="calendar-container">
+    <div class="calendar-header">
+    <button id="edit-lock-btn" title="Toggle Edit Mode">🔓</button>
+    <div class="nav-group">
+        <button id="prev-month">&lt;</button>
+        <h3 id="current-month-display">Month Year</h3>
+        <button id="next-month">&gt;</button>
     </div>
+</div>
+    
+    <div class="weekday-header">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+    </div>
+    
+    <div id="calendar-grid"></div>
+	
+</section>
+
+<section id="entry-section">
+    <div id="vape-form-container">
+        <form id="vape-form">
+            <div class="input-grid">
+                <input type="number" id="ml" placeholder="Qty (ml)" step="any">
+                <input type="number" id="mg" placeholder="Str (mg)" step="any">
+                <input type="number" id="cost" placeholder="Cost (£)" step="any">
+                <input type="datetime-local" id="start-date">
+            </div>
+            <button type="submit" id="log-button">Log New Vape</button>
+        </form>
+    </div>
+
+<div id="nrt-form-container" style="display: none;">
+    <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; background: white; padding: 20px; border-radius: 12px;">
+        
+        <div style="display: flex; gap: 8px;">
+            <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                <option value="25">25mg Patch</option>
+                <option value="15">15mg Patch</option>
+                <option value="10">10mg Patch</option>
+            </select>
+            <button id="log-patch" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
+        </div>
+
+        <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
+
+        <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
+    </div>
+</div>
+<details id="history-drawer" style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
+    <summary style="padding: 15px; cursor: pointer; font-weight: 600; color: #374151; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+        <span>📜 View Recent Entry History</span>
+        <span style="font-size: 0.8rem; color: #6b7280;">(Tap to expand/hide)</span>
+    </summary>
+    
+    <div style="padding: 0 15px 15px 15px; border-top: 1px solid #f3f4f6;">
+        <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Entries are shown with the most recent first.</p>
+        <div id="history-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            </div>
+    </div>
+</details>
+</section>
+    </main>
 
     <script type="module" src="app.js"></script>
 </body>
