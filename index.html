@@ -6,10 +6,14 @@
     <title>Vape/Quit Tracker</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
-        <h1 id="app-title">Vape Tracker <span id="status-emoji"></span></h1>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <h1 id="app-title">Vape Tracker <span id="status-emoji"></span></h1>
+            <button id="chart-toggle-btn" style="background: transparent; font-size: 1.3rem; padding: 0 4px; cursor: pointer; border: none; line-height: 1;">📊</button>
+        </div>
         <button id="mode-toggle">Switch to Quit Mode</button>
     </header>
 
@@ -22,67 +26,77 @@
         </section>
 
         <section id="calendar-container">
-    <div class="calendar-header">
-    <button id="edit-lock-btn" title="Toggle Edit Mode">🔓</button>
-    <div class="nav-group">
-        <button id="prev-month">&lt;</button>
-        <h3 id="current-month-display">Month Year</h3>
-        <button id="next-month">&gt;</button>
-    </div>
-</div>
-    
-    <div class="weekday-header">
-        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
-    </div>
-    
-    <div id="calendar-grid"></div>
-	
-</section>
-
-<section id="entry-section">
-    <div id="vape-form-container">
-        <form id="vape-form">
-            <div class="input-grid">
-                <input type="number" id="ml" placeholder="Qty (ml)" step="any">
-                <input type="number" id="mg" placeholder="Str (mg)" step="any">
-                <input type="number" id="cost" placeholder="Cost (£)" step="any">
-                <input type="datetime-local" id="start-date">
+            <div class="calendar-header">
+                <button id="edit-lock-btn" title="Toggle Edit Mode">🔓</button>
+                <div class="nav-group">
+                    <button id="prev-month">&lt;</button>
+                    <h3 id="current-month-display">Month Year</h3>
+                    <button id="next-month">&gt;</button>
+                </div>
             </div>
-            <button type="submit" id="log-button">Log New Vape</button>
-        </form>
-    </div>
-
-<div id="nrt-form-container" style="display: none;">
-    <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; background: white; padding: 20px; border-radius: 12px;">
-        
-        <div style="display: flex; gap: 8px;">
-            <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
-                <option value="25">25mg Patch</option>
-                <option value="15">15mg Patch</option>
-                <option value="10">10mg Patch</option>
-            </select>
-            <button id="log-patch" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
-        </div>
-
-        <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
-
-        <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
-    </div>
-</div>
-<details id="history-drawer" style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
-    <summary style="padding: 15px; cursor: pointer; font-weight: 600; color: #374151; list-style: none; display: flex; justify-content: space-between; align-items: center;">
-        <span>📜 View Recent Entry History</span>
-        <span style="font-size: 0.8rem; color: #6b7280;">(Tap to expand/hide)</span>
-    </summary>
-    
-    <div style="padding: 0 15px 15px 15px; border-top: 1px solid #f3f4f6;">
-        <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Entries are shown with the most recent first.</p>
-        <div id="history-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            
+            <div class="weekday-header">
+                <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
             </div>
-    </div>
-</details>
-</section>
+            
+            <div id="calendar-grid"></div>
+        </section>
+
+        <section id="entry-section">
+            <div id="vape-form-container">
+                <form id="vape-form">
+                    <div class="input-grid">
+                        <input type="number" id="ml" placeholder="Qty (ml)" step="any">
+                        <input type="number" id="mg" placeholder="Str (mg)" step="any">
+                        <input type="number" id="cost" placeholder="Cost (£)" step="any">
+                        <input type="datetime-local" id="start-date">
+                    </div>
+                    <button type="submit" id="log-button">Log New Vape</button>
+                </form>
+            </div>
+
+            <div id="nrt-form-container" style="display: none;">
+                <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; background: white; padding: 20px; border-radius: 12px;">
+                    <div style="display: flex; gap: 8px;">
+                        <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                            <option value="25">25mg Patch</option>
+                            <option value="15">15mg Patch</option>
+                            <option value="10">10mg Patch</option>
+                        </select>
+                        <button id="log-patch" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
+                    </div>
+
+                    <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
+
+                    <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
+                </div>
+            </div>
+
+            <details id="history-drawer" style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
+                <summary style="padding: 15px; cursor: pointer; font-weight: 600; color: #374151; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+                    <span>📜 View Recent Entry History</span>
+                    <span style="font-size: 0.8rem; color: #6b7280;">(Tap to expand/hide)</span>
+                </summary>
+                
+                <div style="padding: 0 15px 15px 15px; border-top: 1px solid #f3f4f6;">
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Entries are shown with the most recent first.</p>
+                    <div id="history-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+                </div>
+            </details>
+        </section>
     </main>
+
+    <div id="chart-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
+        <div style="background: white; width: 100%; max-width: 600px; border-radius: 16px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #374151; font-family: sans-serif;">3-Day Rolling Average Trend</h3>
+                <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
+            </div>
+            <div style="position: relative; width: 100%; height: 300px;">
+                <canvas id="usageChart"></canvas>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="app.js"></script>
 </body>
