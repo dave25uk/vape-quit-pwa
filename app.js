@@ -5,10 +5,12 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 let currentMode = 'vaping';
+let quitDateString = null; // Caches the quit timestamp
 let viewDate = new Date(); 
 let isCalendarLocked = true; 
 let istoggling = false;
 let myChart = null; 
+let clockInterval = null; // Tracks the background loop
 
 async function init() {
     // 1. Handle Authentication
@@ -24,13 +26,14 @@ async function init() {
         navigator.serviceWorker.register('/sw.js').catch(err => console.log("SW error:", err));
     }
 
-    // 3. Get User Status (Mode)
+    // 3. Get User Status (Mode & Quit Date)
     const { data: status } = await supabase.from('user_status')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
+    quitDateString = (status && status.quit_date) ? status.quit_date : null;
     
     // 4. Setup UI & Event Listeners
     setupDefaultInputs();
@@ -39,6 +42,9 @@ async function init() {
     
     // 5. Initial Data Load
     loadData();
+    
+    // 6. Start the clock tick
+    startQuitClockLoop();
 }
 
 function setupDefaultInputs() {
@@ -130,8 +136,11 @@ document.getElementById('mode-toggle')?.addEventListener('click', async () => {
     }, { onConflict: 'user_id' });
 
     currentMode = newMode;
+    quitDateString = quitDate;
+    
     updateUI();
     loadData();
+    startQuitClockLoop();
 });
 
 function updateUI() {
@@ -160,6 +169,39 @@ function updateUI() {
     }
 }
 
+// Manages execution of the running ticker logic
+function startQuitClockLoop() {
+    if (clockInterval) clearInterval(clockInterval);
+    
+    if (currentMode === 'quit' && quitDateString) {
+        runQuitClock(); // Initial run immediately
+        clockInterval = setInterval(runQuitClock, 1000);
+    }
+}
+
+function runQuitClock() {
+    const clockEl = document.getElementById('quit-clock');
+    if (!clockEl) return;
+
+    if (!quitDateString || currentMode !== 'quit') {
+        clockEl.innerText = "0d 0h 0m 0s";
+        return;
+    }
+
+    const totalMs = new Date() - new Date(quitDateString);
+    if (totalMs < 0) {
+        clockEl.innerText = "0d 0h 0m 0s";
+        return;
+    }
+
+    const days = Math.floor(totalMs / 86400000);
+    const hours = Math.floor((totalMs % 86400000) / 3600000);
+    const minutes = Math.floor((totalMs % 3600000) / 60000);
+    const seconds = Math.floor((totalMs % 60000) / 1000);
+
+    clockEl.innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
 async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -168,6 +210,10 @@ async function loadData() {
     const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
     const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
     const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
+
+    if (status) {
+        quitDateString = status.quit_date;
+    }
 
     const overallAvg = calculateRollingAverage(logs || []);
 
