@@ -9,7 +9,8 @@ let quitDateString = null; // Caches the quit timestamp
 let viewDate = new Date(); 
 let isCalendarLocked = true; 
 let istoggling = false;
-let myChart = null; 
+let myChart = null;
+let yChart = null; // Declare at top level of app.js alongside myChart
 let clockInterval = null; // Tracks the background loop
 
 // --- Helper Functions for Local Date Formatting & Parsing ---
@@ -169,19 +170,29 @@ function setupEventListeners() {
         };
     }
 
-    // Modal Visibility Handlers
-    const chartModal = document.getElementById('chart-modal');
-    document.getElementById('chart-toggle-btn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (chartModal) chartModal.style.display = 'flex';
-    });
-    document.getElementById('close-chart-btn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (chartModal) chartModal.style.display = 'none';
-    });
-    chartModal?.addEventListener('click', (e) => {
-        if (e.target === chartModal) chartModal.style.display = 'none';
-    });
+// Modal Visibility Handlers
+const chartModal = document.getElementById('chart-modal');
+
+document.getElementById('chart-toggle-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (chartModal) {
+        chartModal.style.display = 'flex';
+        
+        // Scroll right now that the modal is visible
+        setTimeout(() => {
+            scrollToChartRight();
+        }, 50);
+    }
+});
+
+document.getElementById('close-chart-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (chartModal) chartModal.style.display = 'none';
+});
+
+chartModal?.addEventListener('click', (e) => {
+    if (e.target === chartModal) chartModal.style.display = 'none';
+});
 	
 	// Toggle Vape Form
 document.getElementById('toggle-vape-btn')?.addEventListener('click', () => {
@@ -387,28 +398,54 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         trendLineValues.push(parseFloat((slope * i + intercept).toFixed(1)));
     }
 
-    const ctx = document.getElementById('usageChart');
-    if (!ctx) return;
-
-    // --- DYNAMIC WIDTH & SCROLL HANDLING ---
+    // --- CALCULATE DYNAMIC CANVAS WIDTH ---
     const canvasWrapper = document.getElementById('chart-canvas-wrapper');
     const scrollContainer = document.getElementById('chart-scroll-container');
 
     if (canvasWrapper && scrollContainer) {
-        // Allocate ~18px of horizontal width per day/data point
-        const pixelsPerPoint = 18; 
+        const pixelsPerPoint = 18;
         const containerWidth = scrollContainer.clientWidth || 300;
         const calculatedWidth = labels.length * pixelsPerPoint;
-
-        // Canvas wrapper stretches when data exceeds the visible box, otherwise fills container
         canvasWrapper.style.width = `${Math.max(containerWidth, calculatedWidth)}px`;
     }
 
-    // --- CHART GENERATION / UPDATE ---
+    // --- CALCULATE SHARED Y-MAX FOR PERFECT SCALE SYNC ---
+    const rawMax = Math.max(...smoothedValues, ...trendLineValues, 10);
+    const maxY = Math.ceil(rawMax / 10) * 10;
+
+    // --- 1. RENDER FIXED Y-AXIS CHART ---
+    const yCtx = document.getElementById('yAxisChart');
+    if (yCtx) {
+        if (yChart) yChart.destroy();
+        yChart = new Chart(yCtx, {
+            type: 'line',
+            data: { labels: [''], datasets: [{ data: [0, maxY] }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: {
+                    x: { ticks: { display: false }, grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        max: maxY,
+                        title: { display: true, text: 'Nicotine (mg)', font: { size: 10 } },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- 2. RENDER SCROLLABLE DATA CHART ---
+    const ctx = document.getElementById('usageChart');
+    if (!ctx) return;
+
     if (myChart) {
         myChart.data.labels = labels;
         myChart.data.datasets[0].data = smoothedValues;
         myChart.data.datasets[1].data = trendLineValues;
+        myChart.options.scales.y.max = maxY;
         myChart.update();
     } else {
         myChart = new Chart(ctx, {
@@ -423,7 +460,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                         backgroundColor: 'rgba(79, 70, 229, 0.05)',
                         borderWidth: 2,
                         tension: 0.3,
-                        pointRadius: 2, 
+                        pointRadius: 2,
                         fill: true
                     },
                     {
@@ -442,36 +479,37 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        title: { display: true, text: 'Nicotine (mg)', font: { size: 11 } } 
+                    y: {
+                        beginAtZero: true,
+                        max: maxY,
+                        ticks: { display: false }, // Hides Y-axis text so fixed Y-axis shines through
+                        grid: { drawBorder: false }
                     },
-                    x: { 
-                        ticks: { 
+                    x: {
+                        ticks: {
                             maxRotation: 45,
                             minRotation: 45,
                             font: { size: 9 },
                             autoSkip: true,
                             autoSkipPadding: 12
-                        } 
+                        }
                     }
                 },
                 plugins: {
-                    legend: { 
-                        display: true, 
-                        position: 'top',
-                        labels: { boxWidth: 12, font: { size: 10 } }
-                    }
+                    legend: { display: false } // Hidden in favor of HTML Legend
                 }
             }
         });
     }
 
-    // --- AUTO-SCROLL TO TODAY (FAR RIGHT) ---
-    if (scrollContainer) {
-        setTimeout(() => {
-            scrollContainer.scrollLeft = scrollContainer.scrollWidth;
-        }, 50);
+    // Auto scroll right attempt
+    scrollToChartRight();
+}
+
+function scrollToChartRight() {
+    const scrollContainer = document.getElementById('chart-scroll-container');
+    if (scrollContainer && scrollContainer.scrollWidth > 0) {
+        scrollContainer.scrollLeft = scrollContainer.scrollWidth;
     }
 }
 
