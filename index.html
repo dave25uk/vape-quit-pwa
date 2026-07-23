@@ -118,16 +118,21 @@
     </main>
 
     <div id="chart-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box;">
-        <div style="background: white; width: 100%; max-width: 600px; border-radius: 16px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: #374151; font-family: sans-serif;">3-Day Rolling Average Trend</h3>
-                <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
-            </div>
-            <div style="position: relative; width: 100%; height: 300px;">
+    <div style="background: white; width: 100%; max-width: 600px; border-radius: 16px; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #374151; font-family: sans-serif;">3-Day Rolling Average Trend</h3>
+            <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
+        </div>
+        
+        <!-- Horizontally Scrollable Outer Container -->
+        <div id="chart-scroll-container" style="position: relative; width: 100%; height: 320px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;">
+            <!-- Dynamic Width Inner Wrapper -->
+            <div id="chart-canvas-wrapper" style="position: relative; height: 100%; min-width: 100%;">
                 <canvas id="usageChart"></canvas>
             </div>
         </div>
     </div>
+</div>
 
     <script type="module" src="app.js"></script>
 </body>

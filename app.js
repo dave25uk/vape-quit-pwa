@@ -390,6 +390,21 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     const ctx = document.getElementById('usageChart');
     if (!ctx) return;
 
+    // --- DYNAMIC WIDTH & SCROLL HANDLING ---
+    const canvasWrapper = document.getElementById('chart-canvas-wrapper');
+    const scrollContainer = document.getElementById('chart-scroll-container');
+
+    if (canvasWrapper && scrollContainer) {
+        // Allocate ~18px of horizontal width per day/data point
+        const pixelsPerPoint = 18; 
+        const containerWidth = scrollContainer.clientWidth || 300;
+        const calculatedWidth = labels.length * pixelsPerPoint;
+
+        // Canvas wrapper stretches when data exceeds the visible box, otherwise fills container
+        canvasWrapper.style.width = `${Math.max(containerWidth, calculatedWidth)}px`;
+    }
+
+    // --- CHART GENERATION / UPDATE ---
     if (myChart) {
         myChart.data.labels = labels;
         myChart.data.datasets[0].data = smoothedValues;
@@ -408,7 +423,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                         backgroundColor: 'rgba(79, 70, 229, 0.05)',
                         borderWidth: 2,
                         tension: 0.3,
-                        pointRadius: smoothedValues.length > 60 ? 0 : 2, 
+                        pointRadius: 2, 
                         fill: true
                     },
                     {
@@ -427,8 +442,19 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Nicotine (mg)', font: { size: 11 } } },
-                    x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } }
+                    y: { 
+                        beginAtZero: true, 
+                        title: { display: true, text: 'Nicotine (mg)', font: { size: 11 } } 
+                    },
+                    x: { 
+                        ticks: { 
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: { size: 9 },
+                            autoSkip: true,
+                            autoSkipPadding: 12
+                        } 
+                    }
                 },
                 plugins: {
                     legend: { 
@@ -439,6 +465,13 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                 }
             }
         });
+    }
+
+    // --- AUTO-SCROLL TO TODAY (FAR RIGHT) ---
+    if (scrollContainer) {
+        setTimeout(() => {
+            scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+        }, 50);
     }
 }
 
