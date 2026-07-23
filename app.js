@@ -224,7 +224,7 @@ function startQuitClockLoop() {
 }
 
 function runQuitClock() {
-    const clockEl = document.getElementById('quit-clock');
+    const clockEl = document.getElementById('quit-timer-container');
     if (!clockEl) return;
 
     // Finds the container box (checks for #quit-clock-container or defaults to the direct parent element)
