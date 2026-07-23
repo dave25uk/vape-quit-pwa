@@ -426,22 +426,36 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                layout: {
+                    padding: { left: 2, right: 4 } // Adds breathability around numbers
+                },
+                plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { enabled: false } 
+                },
                 scales: {
                     x: { 
                         ticks: { 
                             maxRotation: 45,
                             minRotation: 45,
                             font: { size: 9 },
-                            color: 'transparent' // Invisible labels reserve padding to line up grid
+                            color: 'transparent' // Invisible labels reserve height to align grid
                         }, 
                         grid: { display: false, drawBorder: false } 
                     },
                     y: {
                         beginAtZero: true,
                         max: maxY,
-                        title: { display: true, text: 'Nicotine (mg)', font: { size: 10 } },
-                        ticks: { font: { size: 10 } }
+                        title: { 
+                            display: true, 
+                            text: 'Nicotine (mg)', 
+                            font: { size: 10 },
+                            padding: { top: 0, bottom: 2 }
+                        },
+                        ticks: { 
+                            font: { size: 10 },
+                            padding: 4
+                        }
                     }
                 }
             }

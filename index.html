@@ -126,7 +126,7 @@
             <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
         </div>
         
-        <!-- FIXED HTML LEGEND (STAYS VISIBLE ALWAYS) -->
+        <!-- FIXED HTML LEGEND -->
         <div style="display: flex; gap: 16px; justify-content: center; font-size: 0.8rem; font-family: sans-serif; color: #4b5563;">
             <div style="display: flex; align-items: center; gap: 6px;">
                 <span style="width: 12px; height: 12px; background: #4f46e5; border-radius: 2px; display: inline-block;"></span>
@@ -139,19 +139,19 @@
         </div>
 
         <!-- MAIN CHART CONTAINER -->
-       <div style="display: flex; height: 300px; position: relative;">
-    <!-- FIXED Y-AXIS AREA (Increased to 55px width) -->
-    <div style="width: 55px; height: 100%; flex-shrink: 0; position: relative; background: white; z-index: 2;">
-        <canvas id="yAxisChart"></canvas>
-    </div>
+        <div style="display: flex; height: 300px; position: relative;">
+            <!-- FIXED Y-AXIS AREA (Expanded to 65px for clean text spacing) -->
+            <div style="width: 65px; height: 100%; flex-shrink: 0; position: relative; background: white; z-index: 2;">
+                <canvas id="yAxisChart"></canvas>
+            </div>
 
-    <!-- SCROLLABLE X-AXIS AREA -->
-    <div id="chart-scroll-container" style="flex-grow: 1; height: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; position: relative;">
-        <div id="chart-canvas-wrapper" style="position: relative; height: 100%; min-width: 100%;">
-            <canvas id="usageChart"></canvas>
+            <!-- SCROLLABLE X-AXIS AREA -->
+            <div id="chart-scroll-container" style="flex-grow: 1; height: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; position: relative;">
+                <div id="chart-canvas-wrapper" style="position: relative; height: 100%; min-width: 100%;">
+                    <canvas id="usageChart"></canvas>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
     </div>
 </div>
