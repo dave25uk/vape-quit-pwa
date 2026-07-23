@@ -413,7 +413,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     const rawMax = Math.max(...smoothedValues, ...trendLineValues, 10);
     const maxY = Math.ceil(rawMax / 10) * 10;
 
-    // --- 1. RENDER FIXED Y-AXIS CHART ---
+    // --- 1. RENDER FIXED Y-AXIS NUMBERS ONLY ---
     const yCtx = document.getElementById('yAxisChart');
     if (yCtx) {
         if (yChart) yChart.destroy();
@@ -426,9 +426,6 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: { left: 2, right: 4 } // Adds breathability around numbers
-                },
                 plugins: { 
                     legend: { display: false }, 
                     tooltip: { enabled: false } 
@@ -439,22 +436,17 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                             maxRotation: 45,
                             minRotation: 45,
                             font: { size: 9 },
-                            color: 'transparent' // Invisible labels reserve height to align grid
+                            color: 'transparent' // Invisible labels reserve padding to align grid
                         }, 
                         grid: { display: false, drawBorder: false } 
                     },
                     y: {
                         beginAtZero: true,
                         max: maxY,
-                        title: { 
-                            display: true, 
-                            text: 'Nicotine (mg)', 
-                            font: { size: 10 },
-                            padding: { top: 0, bottom: 2 }
-                        },
+                        grid: { drawBorder: false },
                         ticks: { 
                             font: { size: 10 },
-                            padding: 4
+                            padding: 2
                         }
                     }
                 }
@@ -507,7 +499,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                     y: {
                         beginAtZero: true,
                         max: maxY,
-                        ticks: { display: false }, // Hidden so fixed Y-axis shines through
+                        ticks: { display: false }, // Hidden so fixed Y-axis numbers show through
                         grid: { drawBorder: false }
                     },
                     x: {
