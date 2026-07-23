@@ -22,7 +22,7 @@
             <div class="insight-item">Work (M) Avg: <strong id="avg-m">0mg</strong></div>
             <div class="insight-item">Work (A) Avg: <strong id="avg-a">0mg</strong></div>
             <div class="insight-item">Off-Day Avg: <strong id="avg-off">0mg</strong></div>
-			<div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
+            <div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
         </section>
 
         <section id="calendar-container">
@@ -43,42 +43,57 @@
         </section>
 
         <section id="entry-section">
-            <div id="vape-form-container">
-                <form id="vape-form">
-                    <div class="input-grid">
-                        <input type="number" id="ml" placeholder="Qty (ml)" step="any">
-                        <input type="number" id="mg" placeholder="Str (mg)" step="any">
-                        <input type="number" id="cost" placeholder="Cost (£)" step="any">
-                        <input type="datetime-local" id="start-date">
-                    </div>
-                    <button type="submit" id="log-button">Log New Vape</button>
-                </form>
+            <!-- TIME VAPE FREE BANNER -->
+            <div id="quit-timer-container" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 12px; color: #065f46;">
+                <span style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; display: block; margin-bottom: 4px; color: #047857;">Time Vape Free</span>
+                <strong id="quit-clock" style="font-size: 1.35rem; font-family: monospace; font-weight: 700;">0d 0h 0m 0s</strong>
             </div>
 
-            <div id="nrt-form-container" style="display: none;">
-    <!-- Added display: none; here so it stays hidden by default -->
-    <div id="quit-timer-container" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 12px; color: #065f46;">
-        <span style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; display: block; margin-bottom: 4px; color: #047857;">Time Vape Free</span>
-        <strong id="quit-clock" style="font-size: 1.35rem; font-family: monospace; font-weight: 700;">0d 0h 0m 0s</strong>
-    </div>
+            <!-- VAPE LOGGING SECTION -->
+            <div id="vape-section-wrapper" style="margin-bottom: 12px;">
+                <button id="toggle-vape-btn" type="button" style="width: 100%; background: #4f46e5; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    + Log Vape
+                </button>
 
-    <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; background: white; padding: 20px; border-radius: 12px;">
-        <div style="display: flex; gap: 8px;">
-            <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
-                <option value="25">25mg Patch</option>
-                <option value="15">15mg Patch</option>
-                <option value="10">10mg Patch</option>
-            </select>
-            <button id="log-patch" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
-        </div>
+                <div id="vape-form-container" style="display: none; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; margin-top: 8px;">
+                    <form id="vape-form">
+                        <div class="input-grid">
+                            <input type="number" id="ml" placeholder="Qty (ml)" step="any">
+                            <input type="number" id="mg" placeholder="Str (mg)" step="any">
+                            <input type="number" id="cost" placeholder="Cost (£)" step="any">
+                            <input type="datetime-local" id="start-date">
+                        </div>
+                        <button type="submit" id="log-button" style="margin-top: 10px;">Submit New Vape Entry</button>
+                    </form>
+                </div>
+            </div>
 
-        <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
+            <!-- NRT LOGGING SECTION -->
+            <div id="nrt-section-wrapper" style="margin-bottom: 12px;">
+                <button id="toggle-nrt-btn" type="button" style="width: 100%; background: #059669; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    + Log NRT
+                </button>
 
-        <button id="log-lozenge" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
-    </div>
-</div>
+                <div id="nrt-options-container" style="display: none; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e5e7eb; margin-top: 8px;">
+                    <div class="nrt-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                        <div style="display: flex; gap: 8px;">
+                            <select id="patch-strength" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px;">
+                                <option value="25">25mg Patch</option>
+                                <option value="15">15mg Patch</option>
+                                <option value="10">10mg Patch</option>
+                            </select>
+                            <button id="log-patch" type="button" style="flex: 1; background: #059669; margin: 0; width: auto;">Log Patch</button>
+                        </div>
 
-            <details id="history-drawer" style="margin-top: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
+                        <div style="height: 1px; background: #eee; margin: 5px 0;"></div>
+
+                        <button id="log-lozenge" type="button" style="background: #10b981; margin: 0;">Log 2mg Lozenge</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ENTRY HISTORY DRAWER -->
+            <details id="history-drawer" style="margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;">
                 <summary style="padding: 15px; cursor: pointer; font-weight: 600; color: #374151; list-style: none; display: flex; justify-content: space-between; align-items: center;">
                     <span>📜 View Recent Entry History</span>
                     <span style="font-size: 0.8rem; color: #6b7280;">(Tap to expand/hide)</span>

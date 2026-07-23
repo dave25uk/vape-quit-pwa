@@ -182,20 +182,39 @@ function setupEventListeners() {
     chartModal?.addEventListener('click', (e) => {
         if (e.target === chartModal) chartModal.style.display = 'none';
     });
+	
+	// Toggle Vape Form
+document.getElementById('toggle-vape-btn')?.addEventListener('click', () => {
+    const formContainer = document.getElementById('vape-form-container');
+    const btn = document.getElementById('toggle-vape-btn');
+    const isHidden = formContainer.style.display === 'none' || !formContainer.style.display;
+    
+    formContainer.style.display = isHidden ? 'block' : 'none';
+    btn.innerText = isHidden ? '✕ Close Vape Form' : '+ Log Vape';
+    btn.style.backgroundColor = isHidden ? '#3730a3' : '#4f46e5';
+});
+
+// Toggle NRT Options
+document.getElementById('toggle-nrt-btn')?.addEventListener('click', () => {
+    const optionsContainer = document.getElementById('nrt-options-container');
+    const btn = document.getElementById('toggle-nrt-btn');
+    const isHidden = optionsContainer.style.display === 'none' || !optionsContainer.style.display;
+
+    optionsContainer.style.display = isHidden ? 'block' : 'none';
+    btn.innerText = isHidden ? '✕ Close NRT Options' : '+ Log NRT';
+    btn.style.backgroundColor = isHidden ? '#065f46' : '#059669';
+});
 }
 
 function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
     const toggleBtn = document.getElementById('mode-toggle');
     const titleEl = document.getElementById('app-title');
-    const vapeContainer = document.getElementById('vape-form-container');
-    const nrtContainer = document.getElementById('nrt-form-container');
+    const vapeWrapper = document.getElementById('vape-section-wrapper');
 
-    // Always ensure NRT container is visible and timer state is evaluated
-    if (nrtContainer) nrtContainer.style.display = 'block';
+    // Run timer visibility check
     runQuitClock();
 
-    // Guard clause for header elements
     if (!emojiEl || !toggleBtn || !titleEl) return;
 
     if (currentMode === 'quit') {
@@ -203,13 +222,15 @@ function updateUI() {
         emojiEl.innerText = "🚭"; 
         toggleBtn.innerText = "Switch to Vaping Mode";
         
-        if (vapeContainer) vapeContainer.style.display = 'none';
+        // In full Quit mode, hide the entire vape logging option
+        if (vapeWrapper) vapeWrapper.style.display = 'none';
     } else {
         if (titleEl.firstChild) titleEl.firstChild.textContent = "Vape Tracker ";
         emojiEl.innerText = "💨";
         toggleBtn.innerText = "Switch to Quit Mode";
         
-        if (vapeContainer) vapeContainer.style.display = 'block';
+        // Show vape button in Vaping mode
+        if (vapeWrapper) vapeWrapper.style.display = 'block';
     }
 }
 
