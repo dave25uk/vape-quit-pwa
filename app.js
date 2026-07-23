@@ -191,24 +191,24 @@ function updateUI() {
     const vapeContainer = document.getElementById('vape-form-container');
     const nrtContainer = document.getElementById('nrt-form-container');
 
+    // Always ensure NRT container is visible and timer state is evaluated
+    if (nrtContainer) nrtContainer.style.display = 'block';
+    runQuitClock();
+
+    // Guard clause for header elements
     if (!emojiEl || !toggleBtn || !titleEl) return;
 
-    // NRT logging container is now always visible regardless of mode
-    if (nrtContainer) nrtContainer.style.display = 'block';
-
     if (currentMode === 'quit') {
-        titleEl.firstChild.textContent = "Quit Tracker ";
+        if (titleEl.firstChild) titleEl.firstChild.textContent = "Quit Tracker ";
         emojiEl.innerText = "🚭"; 
         toggleBtn.innerText = "Switch to Vaping Mode";
         
-        // Hide vape logging form when in full Quit mode
         if (vapeContainer) vapeContainer.style.display = 'none';
     } else {
-        titleEl.firstChild.textContent = "Vape Tracker ";
+        if (titleEl.firstChild) titleEl.firstChild.textContent = "Vape Tracker ";
         emojiEl.innerText = "💨";
         toggleBtn.innerText = "Switch to Quit Mode";
         
-        // Show vape logging form in Vaping mode
         if (vapeContainer) vapeContainer.style.display = 'block';
     }
 }
@@ -227,23 +227,31 @@ function runQuitClock() {
     const clockEl = document.getElementById('quit-clock');
     if (!clockEl) return;
 
-    // Finds the container box (checks for #quit-clock-container or defaults to the direct parent element)
     const containerEl = document.getElementById('quit-timer-container') || clockEl.parentElement;
 
+    // 1. Hide if not in Quit mode or no quit date set
     if (!quitDateString || currentMode !== 'quit') {
         if (containerEl) containerEl.style.display = 'none';
         return;
     }
 
-    const totalMs = new Date() - new Date(quitDateString);
+    const quitDate = new Date(quitDateString);
+    
+    // Safety check for invalid dates
+    if (isNaN(quitDate.getTime())) {
+        if (containerEl) containerEl.style.display = 'none';
+        return;
+    }
 
-    // Hide the box if time is 0 or negative
+    const totalMs = new Date() - quitDate;
+
+    // 2. Hide if time is 0 or negative
     if (totalMs <= 0) {
         if (containerEl) containerEl.style.display = 'none';
         return;
     }
 
-    // Show the box only when active time is above 0
+    // 3. Show container and update timer
     if (containerEl) containerEl.style.display = 'block';
 
     const days = Math.floor(totalMs / 86400000);
