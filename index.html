@@ -141,14 +141,14 @@
         <!-- MAIN CHART CONTAINER -->
         <div style="display: flex; height: 300px; position: relative;">
             
-            <!-- FIXED Y-AXIS AREA (Separated HTML Label + Canvas Numbers) -->
+            <!-- FIXED Y-AXIS AREA -->
             <div style="display: flex; align-items: center; height: 100%; flex-shrink: 0; background: white; z-index: 2;">
-                <!-- HTML Rotated Label (Never overlaps with canvas) -->
-                <div style="writing-mode: vertical-lr; transform: rotate(180deg); font-size: 0.7rem; font-family: sans-serif; color: #6b7280; text-align: center; font-weight: 500; padding: 0 2px 25px 0;">
+                <!-- HTML Rotated Label -->
+                <div style="writing-mode: vertical-lr; transform: rotate(180deg); font-size: 0.7rem; font-family: sans-serif; color: #6b7280; text-align: center; font-weight: 500; padding-bottom: 25px; width: 16px;">
                     Nicotine (mg)
                 </div>
-                <!-- Y-Axis Scale Numbers Canvas -->
-                <div style="width: 35px; height: 100%; position: relative;">
+                <!-- Y-Axis Scale Canvas (Expanded to 48px to prevent clipping numbers) -->
+                <div style="width: 48px; height: 100%; position: relative;">
                     <canvas id="yAxisChart"></canvas>
                 </div>
             </div>

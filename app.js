@@ -426,6 +426,9 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: { left: 4, right: 2 } // Keeps numbers inside canvas boundaries
+                },
                 plugins: { 
                     legend: { display: false }, 
                     tooltip: { enabled: false } 
@@ -446,7 +449,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                         grid: { drawBorder: false },
                         ticks: { 
                             font: { size: 10 },
-                            padding: 2
+                            padding: 4
                         }
                     }
                 }
