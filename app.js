@@ -12,6 +12,21 @@ let istoggling = false;
 let myChart = null; 
 let clockInterval = null; // Tracks the background loop
 
+// --- Helper Functions for Local Date Formatting & Parsing ---
+function toLocalDateString(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
 async function init() {
     // 1. Handle Authentication
     const { data: { session } } = await supabase.auth.getSession();
@@ -27,10 +42,12 @@ async function init() {
     }
 
     // 3. Get User Status (Mode & Quit Date)
-    const { data: status } = await supabase.from('user_status')
+    const { data: status, error } = await supabase.from('user_status')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
+
+    if (error) console.error("Error fetching status:", error);
 
     currentMode = (status && status.current_mode) ? status.current_mode : 'vaping';
     quitDateString = (status && status.quit_date) ? status.quit_date : null;
@@ -56,6 +73,55 @@ function setupDefaultInputs() {
 }
 
 function setupEventListeners() {
+    // Mode Switcher
+    document.getElementById('mode-toggle')?.addEventListener('click', async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const newMode = currentMode === 'vaping' ? 'quit' : 'vaping';
+        const quitDate = newMode === 'quit' ? new Date().toISOString() : null;
+
+        await supabase.from('user_status').upsert({ 
+            user_id: user.id,
+            current_mode: newMode, 
+            quit_date: quitDate 
+        }, { onConflict: 'user_id' });
+
+        currentMode = newMode;
+        quitDateString = quitDate;
+        
+        updateUI();
+        loadData();
+        startQuitClockLoop();
+    });
+
+    // Vape Form Submission
+    const vapeForm = document.getElementById('vape-form');
+    if (vapeForm) {
+        vapeForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            
+            const payload = {
+                quantity_ml: parseFloat(document.getElementById('ml').value),
+                strength_mg: parseFloat(document.getElementById('mg').value),
+                cost: parseFloat(document.getElementById('cost').value),
+                start_date: new Date(document.getElementById('start-date').value).toISOString(),
+                user_id: user.id 
+            };
+
+            const { error } = await supabase.from('vape_logs').insert([payload]);
+            if (!error) {
+                e.target.reset();
+                setupDefaultInputs();
+                loadData();
+            } else {
+                console.error("Error logging vape:", error);
+            }
+        };
+    }
+
     // Navigation
     document.getElementById('prev-month')?.addEventListener('click', () => {
         viewDate.setMonth(viewDate.getMonth() - 1);
@@ -77,24 +143,22 @@ function setupEventListeners() {
         logNRT('lozenge', 2);
     });
 
-    // Calendar Lock Toggle
+    // Calendar Lock Toggle (Removed double ontouchstart to prevent double trigger)
     const lockBtn = document.getElementById('edit-lock-btn');
     if (lockBtn) {
-        const handleLock = (e) => {
+        lockBtn.onclick = (e) => {
             e.preventDefault();
             isCalendarLocked = !isCalendarLocked;
             lockBtn.innerText = isCalendarLocked ? "🔒" : "🔓";
             lockBtn.style.backgroundColor = isCalendarLocked ? "#f3f4f6" : "#fee2e2";
             document.getElementById('calendar-grid')?.classList.toggle('locked', isCalendarLocked);
         };
-        lockBtn.onclick = handleLock;
-        lockBtn.ontouchstart = handleLock;
     }
 
     // Calendar Grid Interactions
     const grid = document.getElementById('calendar-grid');
     if (grid) {
-        const handleGridTap = (e) => {
+        grid.onclick = (e) => {
             if (isCalendarLocked) return;
             const dayEl = e.target.closest('.calendar-day');
             if (!dayEl || dayEl.classList.contains('spacer')) return;
@@ -103,8 +167,6 @@ function setupEventListeners() {
             const currentType = dayEl.dataset.currentShift; 
             toggleShift(dateStr, currentType ? { shift_type: currentType } : null);
         };
-        grid.onclick = handleGridTap;
-        grid.ontouchstart = handleGridTap;
     }
 
     // Modal Visibility Handlers
@@ -121,27 +183,6 @@ function setupEventListeners() {
         if (e.target === chartModal) chartModal.style.display = 'none';
     });
 }
-
-document.getElementById('mode-toggle')?.addEventListener('click', async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const newMode = currentMode === 'vaping' ? 'quit' : 'vaping';
-    const quitDate = newMode === 'quit' ? new Date().toISOString() : null;
-
-    await supabase.from('user_status').upsert({ 
-        user_id: user.id,
-        current_mode: newMode, 
-        quit_date: quitDate 
-    }, { onConflict: 'user_id' });
-
-    currentMode = newMode;
-    quitDateString = quitDate;
-    
-    updateUI();
-    loadData();
-    startQuitClockLoop();
-});
 
 function updateUI() {
     const emojiEl = document.getElementById('status-emoji');
@@ -206,22 +247,28 @@ async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: nrtLogs } = await supabase.from('nicotine_replacements').select('*').eq('user_id', user.id);
-    const { data: logs } = await supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true });
-    const { data: shifts } = await supabase.from('work_shifts').select('*').eq('user_id', user.id);
-    const { data: status } = await supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle();
+    const [nrtRes, logsRes, shiftsRes, statusRes] = await Promise.all([
+        supabase.from('nicotine_replacements').select('*').eq('user_id', user.id),
+        supabase.from('vape_logs').select('*').eq('user_id', user.id).order('start_date', { ascending: true }),
+        supabase.from('work_shifts').select('*').eq('user_id', user.id),
+        supabase.from('user_status').select('*').eq('user_id', user.id).maybeSingle()
+    ]);
 
-    if (status) {
+    const nrtLogs = nrtRes.data || [];
+    const logs = logsRes.data || [];
+    const shifts = shiftsRes.data || [];
+    const status = statusRes.data || { current_mode: 'vaping' };
+
+    if (status && status.quit_date) {
         quitDateString = status.quit_date;
     }
 
-    const overallAvg = calculateRollingAverage(logs || []);
+    const overallAvg = calculateRollingAverage(logs);
 
-    updateInsights(logs || [], shifts || [], nrtLogs || [], overallAvg);
-    renderCalendar(logs || [], shifts || [], status || { current_mode: 'vaping' }, overallAvg, nrtLogs || []);
+    updateInsights(logs, shifts, nrtLogs, overallAvg);
+    renderCalendar(logs, shifts, status, overallAvg, nrtLogs);
     renderHistory();
-    
-    generateHistoricalChart(logs || [], status || { current_mode: 'vaping' }, overallAvg, nrtLogs || []);
+    generateHistoricalChart(logs, status, overallAvg, nrtLogs);
 }
 
 function calculateRollingAverage(logs) {
@@ -266,7 +313,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
 
     let currentIterDate = new Date(firstDate);
     while (currentIterDate <= today) {
-        const dStr = currentIterDate.toISOString().split('T')[0];
+        const dStr = toLocalDateString(currentIterDate);
         const displayLabel = currentIterDate.toLocaleDateString([], { day: '2-digit', month: 'short' });
         labels.push(displayLabel);
 
@@ -355,7 +402,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     }
 }
 
-function renderCalendar(logs, shifts, status, overallAvg, nrtLogs){
+function renderCalendar(logs, shifts, status, overallAvg, nrtLogs) {
     const grid = document.getElementById('calendar-grid');
     const monthDisplay = document.getElementById('current-month-display');
     if (!grid || !monthDisplay) return;
@@ -370,8 +417,10 @@ function renderCalendar(logs, shifts, status, overallAvg, nrtLogs){
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     for (let p = 0; p < padding; p++) {
-        grid.appendChild(Object.assign(document.createElement('div'), {className: 'calendar-day spacer'}));
+        grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-day spacer' }));
     }
+
+    const todayStr = toLocalDateString(new Date());
 
     for (let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
@@ -387,7 +436,6 @@ function renderCalendar(logs, shifts, status, overallAvg, nrtLogs){
             dayEl.dataset.currentShift = shift.shift_type;
         }
 
-        const todayStr = new Date().toISOString().split('T')[0];
         if (dateStr === todayStr) dayEl.classList.add('today-highlight');
 
         dayEl.innerHTML = `
@@ -436,8 +484,7 @@ async function toggleShift(dateStr, currentShift) {
 }
 
 function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = []) {
-    const targetDate = new Date(dateStr);
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseLocalDate(dateStr);
     const dayStart = targetDate.getTime();
     const dayEnd = dayStart + 86400000;
     
@@ -450,7 +497,7 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
 
     // 1. NRT Calculation
     nrtLogs.forEach(item => {
-        const itemDate = new Date(item.created_at).toISOString().split('T')[0];
+        const itemDate = toLocalDateString(item.created_at);
         if (itemDate === dateStr) dailyNRTNic += parseFloat(item.strength_mg || 0);
     });
 
@@ -486,12 +533,10 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
                 
                 const totalNicInBottle = cur.quantity_ml * cur.strength_mg;
                 
-                const liveDailyAvgAtTarget = totalNicInBottle / daysElapsedAtTarget;
-                const liveDailyAvgCurrent = totalNicInBottle / totalDaysActiveNow;
+                const liveDailyAvgAtTarget = totalNicInBottle / Math.max(1, daysElapsedAtTarget);
+                const liveDailyAvgCurrent = totalNicInBottle / Math.max(1, totalDaysActiveNow);
 
-                if (targetDate.getTime() === today.getTime()) {
-                    dailyVapeNic = (overallAvg > 0) ? Math.min(overallAvg, liveDailyAvgCurrent) : liveDailyAvgCurrent;
-                } else if (targetDate.getTime() >= startMidnight.getTime() && targetDate.getTime() < today.getTime()) {
+                if (targetDate.getTime() === today.getTime() || (targetDate.getTime() >= startMidnight.getTime() && targetDate.getTime() < today.getTime())) {
                     dailyVapeNic = (overallAvg > 0) ? Math.min(overallAvg, liveDailyAvgCurrent) : liveDailyAvgCurrent;
                 }
                 break;
@@ -524,7 +569,7 @@ function updateInsights(logs, shifts, nrtLogs, overallAvg) {
     for (let i = 0; i < 30; i++) {
         const d = new Date();
         d.setDate(now.getDate() - i);
-        const dStr = d.toISOString().split('T')[0];
+        const dStr = toLocalDateString(d);
 
         const mg = parseFloat(calculateMgForDate(dStr, logs, { current_mode: currentMode }, overallAvg, nrtLogs));
         
@@ -545,32 +590,6 @@ function updateInsights(logs, shifts, nrtLogs, overallAvg) {
     updateEl('avg-a', stats.A.s, stats.A.c);
     updateEl('avg-off', stats.Off.s, stats.Off.c);
     updateEl('avg-daily', stats.T.s, stats.T.c);
-}
-
-const vapeForm = document.getElementById('vape-form');
-if (vapeForm) {
-    vapeForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        
-        const payload = {
-            quantity_ml: parseFloat(document.getElementById('ml').value),
-            strength_mg: parseFloat(document.getElementById('mg').value),
-            cost: parseFloat(document.getElementById('cost').value),
-            start_date: new Date(document.getElementById('start-date').value).toISOString(),
-            user_id: user.id 
-        };
-
-        const { error } = await supabase.from('vape_logs').insert([payload]);
-        if (!error) {
-            e.target.reset();
-            const n = new Date();
-            const dateInput = document.getElementById('start-date');
-            if (dateInput) dateInput.value = (new Date(n - n.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-            loadData();
-        }
-    };
 }
 
 async function logNRT(type, mg) {
