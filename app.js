@@ -599,7 +599,7 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
 }
 
 function updateInsights(logs, shifts, nrtLogs, overallAvg) {
-    const stats = { M: { s: 0, c: 0 }, A: { s: 0, c: 0 }, Off: { s: 0, c: 0 }, T: { s: 0, c: 0 } };
+    const stats = { Work: { s: 0, c: 0 }, Off: { s: 0, c: 0 }, T: { s: 0, c: 0 } };
     
     const now = new Date();
     
@@ -612,9 +612,15 @@ function updateInsights(logs, shifts, nrtLogs, overallAvg) {
         
         if (mg > 0) {
             const shift = shifts.find(s => s.shift_date === dStr);
-            const type = shift ? shift.shift_type : 'Off';
-            stats[type].s += mg; stats[type].c++;
-            stats.T.s += mg; stats.T.c++;
+            
+            // Check if a shift exists and if it's either an M or A shift
+            const isWorkDay = shift && (shift.shift_type === 'M' || shift.shift_type === 'A');
+            const type = isWorkDay ? 'Work' : 'Off';
+            
+            stats[type].s += mg; 
+            stats[type].c++;
+            stats.T.s += mg; 
+            stats.T.c++;
         }
     }
 
@@ -623,8 +629,7 @@ function updateInsights(logs, shifts, nrtLogs, overallAvg) {
         if (el) el.innerText = (count > 0 ? (val / count).toFixed(1) : "0") + 'mg';
     };
 
-    updateEl('avg-m', stats.M.s, stats.M.c);
-    updateEl('avg-a', stats.A.s, stats.A.c);
+    updateEl('avg-work', stats.Work.s, stats.Work.c);
     updateEl('avg-off', stats.Off.s, stats.Off.c);
     updateEl('avg-daily', stats.T.s, stats.T.c);
 }

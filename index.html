@@ -18,12 +18,22 @@
     </header>
 
     <main id="app-content">
-        <section id="insights-bar">
-            <div class="insight-item">Work (M) Avg: <strong id="avg-m">0mg</strong></div>
-            <div class="insight-item">Work (A) Avg: <strong id="avg-a">0mg</strong></div>
-            <div class="insight-item">Off-Day Avg: <strong id="avg-off">0mg</strong></div>
-            <div class="insight-item">Overall Daily Avg: <strong id="avg-daily">0mg</strong></div>
-        </section>
+        <section id="insights-bar" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: white; padding: 14px 10px; border-radius: 12px; border: 1px solid #e5e7eb; text-align: center; margin-bottom: 16px;">
+    <div class="insight-item" style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 0.75rem; color: #6b7280; font-weight: 500;">Work Day Avg</span>
+        <strong id="avg-work" style="font-size: 1.1rem; color: #4f46e5;">0mg</strong>
+    </div>
+    
+    <div class="insight-item" style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 0.75rem; color: #6b7280; font-weight: 500;">Off-Day Avg</span>
+        <strong id="avg-off" style="font-size: 1.1rem; color: #4f46e5;">0mg</strong>
+    </div>
+    
+    <div class="insight-item" style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 0.75rem; color: #6b7280; font-weight: 500;">Overall Avg</span>
+        <strong id="avg-daily" style="font-size: 1.1rem; color: #4f46e5;">0mg</strong>
+    </div>
+</section>
 
         <section id="calendar-container">
             <div class="calendar-header">
