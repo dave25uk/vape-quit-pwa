@@ -193,20 +193,23 @@ function updateUI() {
 
     if (!emojiEl || !toggleBtn || !titleEl) return;
 
+    // NRT logging container is now always visible regardless of mode
+    if (nrtContainer) nrtContainer.style.display = 'block';
+
     if (currentMode === 'quit') {
         titleEl.firstChild.textContent = "Quit Tracker ";
         emojiEl.innerText = "🚭"; 
         toggleBtn.innerText = "Switch to Vaping Mode";
         
+        // Hide vape logging form when in full Quit mode
         if (vapeContainer) vapeContainer.style.display = 'none';
-        if (nrtContainer) nrtContainer.style.display = 'block';
     } else {
         titleEl.firstChild.textContent = "Vape Tracker ";
         emojiEl.innerText = "💨";
         toggleBtn.innerText = "Switch to Quit Mode";
         
+        // Show vape logging form in Vaping mode
         if (vapeContainer) vapeContainer.style.display = 'block';
-        if (nrtContainer) nrtContainer.style.display = 'none';
     }
 }
 
