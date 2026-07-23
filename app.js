@@ -227,16 +227,24 @@ function runQuitClock() {
     const clockEl = document.getElementById('quit-clock');
     if (!clockEl) return;
 
+    // Finds the container box (checks for #quit-clock-container or defaults to the direct parent element)
+    const containerEl = document.getElementById('quit-clock-container') || clockEl.parentElement;
+
     if (!quitDateString || currentMode !== 'quit') {
-        clockEl.innerText = "0d 0h 0m 0s";
+        if (containerEl) containerEl.style.display = 'none';
         return;
     }
 
     const totalMs = new Date() - new Date(quitDateString);
-    if (totalMs < 0) {
-        clockEl.innerText = "0d 0h 0m 0s";
+
+    // Hide the box if time is 0 or negative
+    if (totalMs <= 0) {
+        if (containerEl) containerEl.style.display = 'none';
         return;
     }
+
+    // Show the box only when active time is above 0
+    if (containerEl) containerEl.style.display = 'block';
 
     const days = Math.floor(totalMs / 86400000);
     const hours = Math.floor((totalMs % 86400000) / 3600000);
