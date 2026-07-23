@@ -224,11 +224,11 @@ function startQuitClockLoop() {
 }
 
 function runQuitClock() {
-    const clockEl = document.getElementById('quit-timer-container');
+    const clockEl = document.getElementById('quit-clock');
     if (!clockEl) return;
 
     // Finds the container box (checks for #quit-clock-container or defaults to the direct parent element)
-    const containerEl = document.getElementById('quit-clock-container') || clockEl.parentElement;
+    const containerEl = document.getElementById('quit-timer-container') || clockEl.parentElement;
 
     if (!quitDateString || currentMode !== 'quit') {
         if (containerEl) containerEl.style.display = 'none';
