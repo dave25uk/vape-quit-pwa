@@ -485,75 +485,67 @@ async function toggleShift(dateStr, currentShift) {
 
 function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = []) {
     const targetDate = parseLocalDate(dateStr);
-    const dayStart = targetDate.getTime();
-    const dayEnd = dayStart + 86400000;
+    const dayStart = targetDate.getTime(); // Midnight at start of target day
+    const dayEnd = dayStart + 86400000;   // Midnight at end of target day
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (targetDate > today) return 0;
+    const now = new Date();
+    const todayStr = toLocalDateString(now);
+    const isToday = (dateStr === todayStr);
+
+    // Don't calculate future days
+    if (targetDate > parseLocalDate(todayStr)) return 0;
 
     let dailyVapeNic = 0;
     let dailyNRTNic = 0;
 
-    // 1. NRT Calculation
+    // 1. Add NRT logged on this specific date
     nrtLogs.forEach(item => {
-        const itemDate = toLocalDateString(item.created_at);
-        if (itemDate === dateStr) dailyNRTNic += parseFloat(item.strength_mg || 0);
+        if (toLocalDateString(item.created_at) === dateStr) {
+            dailyNRTNic += parseFloat(item.strength_mg || 0);
+        }
     });
 
-    // 2. Vape Calculation
-    let isQuit = false;
+    // 2. Check if user is in Quit mode
     if (status.current_mode === 'quit' && status.quit_date) {
-        const qDate = new Date(status.quit_date);
-        qDate.setHours(0, 0, 0, 0);
-        if (targetDate >= qDate) isQuit = true;
+        const qDate = parseLocalDate(toLocalDateString(status.quit_date));
+        if (targetDate >= qDate) {
+            return dailyNRTNic > 0 ? dailyNRTNic.toFixed(1) : 0;
+        }
     }
 
-    if (!isQuit) {
-        for (let i = 0; i < logs.length; i++) {
-            const cur = logs[i];
-            const logStart = new Date(cur.start_date).getTime();
-            let logEnd;
+    // Estimated hourly rate for the active bottle (mg per hour)
+    const activeHourlyRate = overallAvg > 0 ? (overallAvg / 24) : 0;
 
-            const next = logs[i + 1];
-            if (next) {
-                logEnd = new Date(next.start_date).getTime();
-            } else {
-                // ACTIVE VAPE LOGIC
-                const startMidnight = new Date(cur.start_date);
-                startMidnight.setHours(0,0,0,0);
-                
-                if (targetDate.getTime() < startMidnight.getTime()) continue;
+    // 3. Process all vape logs along the continuous timeline
+    for (let i = 0; i < logs.length; i++) {
+        const cur = logs[i];
+        const logStart = new Date(cur.start_date).getTime();
+        const next = logs[i + 1];
 
-                const msPassedToTarget = targetDate.getTime() - startMidnight.getTime();
-                const daysElapsedAtTarget = Math.floor(msPassedToTarget / 86400000) + 1;
-                
-                const totalMsPassedNow = today.getTime() - startMidnight.getTime();
-                const totalDaysActiveNow = Math.floor(totalMsPassedNow / 86400000) + 1;
-                
-                const totalNicInBottle = cur.quantity_ml * cur.strength_mg;
-                
-                const liveDailyAvgAtTarget = totalNicInBottle / Math.max(1, daysElapsedAtTarget);
-                const liveDailyAvgCurrent = totalNicInBottle / Math.max(1, totalDaysActiveNow);
+        let logEnd;
+        let hourlyRate;
 
-                if (targetDate.getTime() === today.getTime() || (targetDate.getTime() >= startMidnight.getTime() && targetDate.getTime() < today.getTime())) {
-                    dailyVapeNic = (overallAvg > 0) ? Math.min(overallAvg, liveDailyAvgCurrent) : liveDailyAvgCurrent;
-                }
-                break;
-            }
-
-            // COMPLETED VAPE LOGIC
+        if (next) {
+            // FINISHED BOTTLE: Exact rate based on actual hours elapsed
+            logEnd = new Date(next.start_date).getTime();
             const totalHours = (logEnd - logStart) / 3600000;
             if (totalHours <= 0) continue;
-            const nicPerHour = (cur.quantity_ml * cur.strength_mg) / totalHours;
+            hourlyRate = (cur.quantity_ml * cur.strength_mg) / totalHours;
+        } else {
+            // ACTIVE BOTTLE:
+            // If checking today, only count hours up to 'now'.
+            // If checking a past day covered by this active bottle, count the full day (dayEnd).
+            logEnd = isToday ? now.getTime() : dayEnd; 
+            hourlyRate = activeHourlyRate;
+        }
 
-            const overlapStart = Math.max(dayStart, logStart);
-            const overlapEnd = Math.min(dayEnd, logEnd);
+        // Calculate exact hour overlap between this bottle's window and the selected date
+        const overlapStart = Math.max(dayStart, logStart);
+        const overlapEnd = Math.min(dayEnd, logEnd);
 
-            if (overlapStart < overlapEnd) {
-                const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
-                dailyVapeNic += (hoursOnThisDay * nicPerHour);
-            }
+        if (overlapStart < overlapEnd) {
+            const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
+            dailyVapeNic += (hoursOnThisDay * hourlyRate);
         }
     }
 
