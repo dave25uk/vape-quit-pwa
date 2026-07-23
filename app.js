@@ -419,13 +419,24 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         if (yChart) yChart.destroy();
         yChart = new Chart(yCtx, {
             type: 'line',
-            data: { labels: [''], datasets: [{ data: [0, maxY] }] },
+            data: { 
+                labels: labels, // Shared labels array forces identical bottom padding
+                datasets: [{ data: Array(labels.length).fill(null) }] 
+            },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false }, tooltip: { enabled: false } },
                 scales: {
-                    x: { ticks: { display: false }, grid: { display: false } },
+                    x: { 
+                        ticks: { 
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: { size: 9 },
+                            color: 'transparent' // Invisible labels reserve padding to line up grid
+                        }, 
+                        grid: { display: false, drawBorder: false } 
+                    },
                     y: {
                         beginAtZero: true,
                         max: maxY,
@@ -482,7 +493,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                     y: {
                         beginAtZero: true,
                         max: maxY,
-                        ticks: { display: false }, // Hides Y-axis text so fixed Y-axis shines through
+                        ticks: { display: false }, // Hidden so fixed Y-axis shines through
                         grid: { drawBorder: false }
                     },
                     x: {
