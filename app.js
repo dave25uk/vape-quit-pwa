@@ -387,7 +387,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
 
     // Dynamic smoothing window based on the selected range
     let smoothWindow = 3;
-    if (chartRange === 7) smoothWindow = 3;
+    if (chartRange === 7) smoothWindow = 1;
     else if (chartRange === 30) smoothWindow = 3;
     else if (chartRange === 90) smoothWindow = 3;
     else if (chartRange === 'all') smoothWindow = 30;
