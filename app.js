@@ -391,6 +391,13 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     else if (chartRange === 30) smoothWindow = 7;
     else if (chartRange === 90) smoothWindow = 14;
     else if (chartRange === 'all') smoothWindow = 30;
+	
+	// Dynamically update the UI text to match the smoothing window
+const legendText = document.getElementById('legend-rolling-text');
+if (legendText) legendText.innerText = `${smoothWindow}-Day Rolling Avg`;
+
+const modalTitle = document.getElementById('chart-modal-title');
+if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Trend`;
 
     const smoothedValues = dailyRawValues.map((val, idx) => {
         let sum = 0;
