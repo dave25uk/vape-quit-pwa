@@ -661,20 +661,33 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
             const totalHours = (logEnd - logStart) / 3600000;
             if (totalHours <= 0) continue;
             hourlyRate = (bottleQty * bottleStrength) / totalHours;
-        } else {
-            // ACTIVE BOTTLE:
-            logEnd = isToday ? now.getTime() : dayEnd; 
+} else {
+    // ACTIVE BOTTLE
+    logEnd = isToday ? now.getTime() : dayEnd;
 
-            if (bottleStrength === 0) {
-                // 0mg bottle = zero nicotine accumulation
-                hourlyRate = 0;
-            } else {
-                // Scale active rate using current bottle's strength
-                const maxBottleNic = bottleQty * bottleStrength;
-                const estimatedDailyMg = overallAvg > 0 ? Math.min(overallAvg, maxBottleNic) : maxBottleNic;
-                hourlyRate = estimatedDailyMg / 24;
-            }
-        }
+    if (bottleStrength === 0) {
+        hourlyRate = 0;
+    } else {
+        const bottleNic = bottleQty * bottleStrength;
+
+        // Hours from bottle start to the end of the day we're calculating
+        // (or to right now, if this is today).
+        const elapsedHours = (now - logStart) / 3600000;
+
+        // Rate based on the historical daily average.
+        // Fallback (no history yet) matches the old behaviour: bottle spread over 1 day.
+        const hourlyAverage = overallAvg > 0 ? overallAvg / 24 : bottleNic / 24;
+
+        // Rate needed to consume the whole bottle in the time elapsed so far.
+        const hourlyActual = elapsedHours > 0 ? bottleNic / elapsedHours : hourlyAverage;
+
+        // Use whichever is lower. This means:
+        // - Early in the bottle's life: use the historical average.
+        // - Once the bottle has been open long enough that using the average
+        //   would exceed its contents: switch to the slower "actual" rate.
+        hourlyRate = Math.min(hourlyAverage, hourlyActual);
+    }
+}
 
         const overlapStart = Math.max(dayStart, logStart);
         const overlapEnd = Math.min(dayEnd, logEnd);
