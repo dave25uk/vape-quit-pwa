@@ -370,8 +370,8 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    const labels = [];
-    const dailyRawValues = [];
+    let labels = [];
+    let dailyRawValues = [];
 
     let currentIterDate = new Date(firstDate);
     while (currentIterDate <= today) {
@@ -453,7 +453,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { left: 4, right: 2, bottom: 35 } // <--- ADDED bottom: 35
+                    padding: { left: 4, right: 2 } // <--- REMOVED bottom: 35
                 },
                 plugins: { 
                     legend: { display: false }, 

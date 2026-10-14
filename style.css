@@ -9,6 +9,7 @@ body {
     background: #f9fafb; 
     padding: 10px; 
     margin: 0; 
+	overflow-x: hidden; /* Prevents horizontal scroll */
 }
 
 header { 
@@ -59,6 +60,12 @@ h1#app-title {
     margin-bottom: 15px;
 	pointer-events: auto;
 }
+#calendar-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
 .nav-group {
     display: flex;
     align-items: center;
@@ -67,7 +74,6 @@ h1#app-title {
 #edit-lock-btn {
     background: #f3f4f6;
     color: #333;
-    border: 2px solid red !important; /* Temporary: to see if the ID is correct */
 	position: relative;
     font-size: 1rem;
     width: 44px;
@@ -132,6 +138,7 @@ h1#app-title {
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+	    min-width: 0; /* Forces grid items to shrink properly */
 }
 
 .calendar-day strong { font-size: 0.65rem; color: var(--primary); }
