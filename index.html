@@ -125,6 +125,13 @@
             <h3 style="margin: 0; color: #374151; font-family: sans-serif; font-size: 1.1rem;">3-Day Rolling Average Trend</h3>
             <button id="close-chart-btn" style="width: auto; background: #f3f4f6; color: #374151; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer;">Close</button>
         </div>
+		        <!-- TIME RANGE SELECTOR -->
+        <div id="chart-range-selector" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 4px;">
+            <button class="range-btn" data-range="7">7D</button>
+            <button class="range-btn active" data-range="30">30D</button>
+            <button class="range-btn" data-range="90">90D</button>
+            <button class="range-btn" data-range="all">All</button>
+        </div>
         
         <!-- FIXED HTML LEGEND -->
         <div style="display: flex; gap: 16px; justify-content: center; font-size: 0.8rem; font-family: sans-serif; color: #4b5563;">

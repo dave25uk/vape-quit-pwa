@@ -211,3 +211,19 @@ button {
     letter-spacing: 0.5px;
     box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
 }
+.range-btn {
+    width: auto;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    font-weight: 600;
+}
+.range-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}

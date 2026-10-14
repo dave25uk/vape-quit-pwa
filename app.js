@@ -12,6 +12,7 @@ let istoggling = false;
 let myChart = null;
 let yChart = null; // Declare at top level of app.js alongside myChart
 let clockInterval = null; // Tracks the background loop
+let chartRange = 30; // Default to 30 days
 
 // --- Helper Functions for Local Date Formatting & Parsing ---
 function toLocalDateString(date) {
@@ -193,6 +194,16 @@ document.getElementById('close-chart-btn')?.addEventListener('click', (e) => {
 chartModal?.addEventListener('click', (e) => {
     if (e.target === chartModal) chartModal.style.display = 'none';
 });
+
+    // Chart Range Selector
+    document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            chartRange = e.target.dataset.range === 'all' ? 'all' : parseInt(e.target.dataset.range);
+            loadData(); // Re-render chart
+        });
+    });
 	
 	// Toggle Vape Form
 document.getElementById('toggle-vape-btn')?.addEventListener('click', () => {
@@ -398,15 +409,30 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         trendLineValues.push(parseFloat((slope * i + intercept).toFixed(1)));
     }
 
+    // --- SLICE DATA BASED ON RANGE ---
+    if (chartRange !== 'all') {
+        const daysToShow = chartRange;
+        if (labels.length > daysToShow) {
+            labels = labels.slice(-daysToShow);
+            dailyRawValues = dailyRawValues.slice(-daysToShow);
+        }
+    }
+
     // --- CALCULATE DYNAMIC CANVAS WIDTH ---
     const canvasWrapper = document.getElementById('chart-canvas-wrapper');
     const scrollContainer = document.getElementById('chart-scroll-container');
 
     if (canvasWrapper && scrollContainer) {
-        const pixelsPerPoint = 18;
-        const containerWidth = scrollContainer.clientWidth || 300;
+        let pixelsPerPoint = 18;
+        
+        // If showing 'All', shrink the points to fit the screen width for an overview
+        if (chartRange === 'all') {
+            const containerWidth = scrollContainer.clientWidth || 300;
+            pixelsPerPoint = Math.max(2, containerWidth / labels.length);
+        }
+
         const calculatedWidth = labels.length * pixelsPerPoint;
-        canvasWrapper.style.width = `${Math.max(containerWidth, calculatedWidth)}px`;
+        canvasWrapper.style.width = `${Math.max(scrollContainer.clientWidth || 300, calculatedWidth)}px`;
     }
 
     // --- CALCULATE SHARED Y-MAX FOR PERFECT SCALE SYNC ---
@@ -420,14 +446,14 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         yChart = new Chart(yCtx, {
             type: 'line',
             data: { 
-                labels: labels, // Shared labels array forces identical bottom padding
+                labels: labels, 
                 datasets: [{ data: Array(labels.length).fill(null) }] 
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { left: 4, right: 2 } // Keeps numbers inside canvas boundaries
+                    padding: { left: 4, right: 2, bottom: 35 } // <--- ADDED bottom: 35
                 },
                 plugins: { 
                     legend: { display: false }, 
