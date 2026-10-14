@@ -385,11 +385,22 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         currentIterDate.setDate(currentIterDate.getDate() + 1);
     }
 
+    // Dynamic smoothing window based on the selected range
+    let smoothWindow = 3;
+    if (chartRange === 7) smoothWindow = 3;
+    else if (chartRange === 30) smoothWindow = 7;
+    else if (chartRange === 90) smoothWindow = 14;
+    else if (chartRange === 'all') smoothWindow = 30;
+
     const smoothedValues = dailyRawValues.map((val, idx) => {
-        let sum = val;
-        let count = 1;
-        if (idx >= 1) { sum += dailyRawValues[idx - 1]; count++; }
-        if (idx >= 2) { sum += dailyRawValues[idx - 2]; count++; }
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < smoothWindow; i++) {
+            if (idx - i >= 0) {
+                sum += dailyRawValues[idx - i];
+                count++;
+            }
+        }
         return parseFloat((sum / count).toFixed(1));
     });
 
@@ -453,7 +464,7 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { left: 4, right: 2 } // <--- REMOVED bottom: 35
+                    padding: { left: 10, right: 2 } // <--- REMOVED bottom: 35
                 },
                 plugins: { 
                     legend: { display: false }, 
