@@ -471,7 +471,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { left: 10, right: 2 } // <--- REMOVED bottom: 35
+                    padding: { left: 0, right: 0, bottom: 35  } // <--- REMOVED bottom: 35
                 },
                 plugins: { 
                     legend: { display: false }, 
@@ -479,6 +479,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                 },
                 scales: {
                     x: { 
+					        display: false,
                         ticks: { 
                             maxRotation: 45,
                             minRotation: 45,
@@ -542,6 +543,9 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+				layout: {
+    padding: { left: 0, right: 2 } // was left: 4
+},
                 scales: {
                     y: {
                         beginAtZero: true,
