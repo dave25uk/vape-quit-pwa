@@ -667,36 +667,31 @@ function calculateMgForDate(dateStr, logs, status, overallAvg = 0, nrtLogs = [])
 
     if (bottleStrength === 0) {
         hourlyRate = 0;
+} else {
+    // ACTIVE BOTTLE
+    logEnd = isToday ? now.getTime() : dayEnd;
+
+    if (bottleStrength === 0) {
+        hourlyRate = 0;
     } else {
         const bottleNic = bottleQty * bottleStrength;
 
-        // Hours from bottle start to the end of the day we're calculating
-        // (or to right now, if this is today).
-        const elapsedHours = (now - logStart) / 3600000;
+        // OPTION B: Always use the *current* elapsed time to determine the active rate.
+        // This means if the bottle has been open for 10 days, every day in the
+        // active bottle's lifespan will use the 10-day rate.
+        const currentElapsedHours = (now.getTime() - logStart) / 3600000;
 
         // Rate based on the historical daily average.
         // Fallback (no history yet) matches the old behaviour: bottle spread over 1 day.
         const hourlyAverage = overallAvg > 0 ? overallAvg / 24 : bottleNic / 24;
 
         // Rate needed to consume the whole bottle in the time elapsed so far.
-        const hourlyActual = elapsedHours > 0 ? bottleNic / elapsedHours : hourlyAverage;
+        const hourlyActual = currentElapsedHours > 0 ? bottleNic / currentElapsedHours : hourlyAverage;
 
-        // Use whichever is lower. This means:
-        // - Early in the bottle's life: use the historical average.
-        // - Once the bottle has been open long enough that using the average
-        //   would exceed its contents: switch to the slower "actual" rate.
+        // Use whichever is lower.
         hourlyRate = Math.min(hourlyAverage, hourlyActual);
     }
 }
-
-        const overlapStart = Math.max(dayStart, logStart);
-        const overlapEnd = Math.min(dayEnd, logEnd);
-
-        if (overlapStart < overlapEnd) {
-            const hoursOnThisDay = (overlapEnd - overlapStart) / 3600000;
-            dailyVapeNic += (hoursOnThisDay * hourlyRate);
-        }
-    }
 
     const total = dailyVapeNic + dailyNRTNic;
     return total > 0 ? total.toFixed(1) : 0;
