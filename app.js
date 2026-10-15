@@ -178,11 +178,11 @@ document.getElementById('chart-toggle-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
     if (chartModal) {
         chartModal.style.display = 'flex';
-        
-        // Scroll right now that the modal is visible
         setTimeout(() => {
+            if (myChart) myChart.resize();
+            if (yChart) yChart.resize();
             scrollToChartRight();
-        }, 50);
+        }, 100);
     }
 });
 
