@@ -385,20 +385,26 @@ function generateHistoricalChart(logs, status, overallAvg, nrtLogs) {
         currentIterDate.setDate(currentIterDate.getDate() + 1);
     }
 
-    // Dynamic smoothing window based on the selected range
+    // --- 1. SLICE FIRST (before smoothing) ---
+    if (chartRange !== 'all' && labels.length > chartRange) {
+        labels = labels.slice(-chartRange);
+        dailyRawValues = dailyRawValues.slice(-chartRange);
+    }
+
+    // --- 2. DYNAMIC SMOOTHING WINDOW ---
     let smoothWindow = 3;
     if (chartRange === 7) smoothWindow = 1;
     else if (chartRange === 30) smoothWindow = 3;
     else if (chartRange === 90) smoothWindow = 3;
     else if (chartRange === 'all') smoothWindow = 30;
-	
-	// Dynamically update the UI text to match the smoothing window
-const legendText = document.getElementById('legend-rolling-text');
-if (legendText) legendText.innerText = `${smoothWindow}-Day Rolling Avg`;
 
-const modalTitle = document.getElementById('chart-modal-title');
-if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Trend`;
+    // --- 3. UPDATE UI TEXT ---
+    const legendText = document.getElementById('legend-rolling-text');
+    if (legendText) legendText.innerText = `${smoothWindow}-Day Rolling Avg`;
+    const modalTitle = document.getElementById('chart-modal-title');
+    if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Trend`;
 
+    // --- 4. SMOOTH THE SLICED DATA ---
     const smoothedValues = dailyRawValues.map((val, idx) => {
         let sum = 0;
         let count = 0;
@@ -411,6 +417,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
         return parseFloat((sum / count).toFixed(1));
     });
 
+    // --- 5. TREND LINE ---
     const n = dailyRawValues.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
     for (let i = 0; i < n; i++) {
@@ -427,37 +434,25 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
         trendLineValues.push(parseFloat((slope * i + intercept).toFixed(1)));
     }
 
-    // --- SLICE DATA BASED ON RANGE ---
-    if (chartRange !== 'all') {
-        const daysToShow = chartRange;
-        if (labels.length > daysToShow) {
-            labels = labels.slice(-daysToShow);
-            dailyRawValues = dailyRawValues.slice(-daysToShow);
-        }
-    }
-
-    // --- CALCULATE DYNAMIC CANVAS WIDTH ---
+    // --- 6. CALCULATE DYNAMIC CANVAS WIDTH ---
     const canvasWrapper = document.getElementById('chart-canvas-wrapper');
     const scrollContainer = document.getElementById('chart-scroll-container');
 
     if (canvasWrapper && scrollContainer) {
         let pixelsPerPoint = 18;
-        
-        // If showing 'All', shrink the points to fit the screen width for an overview
         if (chartRange === 'all') {
             const containerWidth = scrollContainer.clientWidth || 300;
             pixelsPerPoint = Math.max(2, containerWidth / labels.length);
         }
-
         const calculatedWidth = labels.length * pixelsPerPoint;
         canvasWrapper.style.width = `${Math.max(scrollContainer.clientWidth || 300, calculatedWidth)}px`;
     }
 
-    // --- CALCULATE SHARED Y-MAX FOR PERFECT SCALE SYNC ---
+    // --- 7. SHARED Y-MAX ---
     const rawMax = Math.max(...smoothedValues, ...trendLineValues, 10);
     const maxY = Math.ceil(rawMax / 10) * 10;
 
-    // --- 1. RENDER FIXED Y-AXIS NUMBERS ONLY ---
+    // --- 8. RENDER FIXED Y-AXIS NUMBERS ONLY ---
     const yCtx = document.getElementById('yAxisChart');
     if (yCtx) {
         if (yChart) yChart.destroy();
@@ -471,7 +466,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: { left: 0, right: 0, bottom: 35  } // <--- REMOVED bottom: 35
+                    padding: { left: 0, right: 0, bottom: 35 }
                 },
                 plugins: { 
                     legend: { display: false }, 
@@ -479,12 +474,12 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                 },
                 scales: {
                     x: { 
-					        display: false,
+                        display: false,
                         ticks: { 
                             maxRotation: 45,
                             minRotation: 45,
                             font: { size: 9 },
-                            color: 'transparent' // Invisible labels reserve padding to align grid
+                            color: 'transparent'
                         }, 
                         grid: { display: false, drawBorder: false } 
                     },
@@ -502,7 +497,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
         });
     }
 
-    // --- 2. RENDER SCROLLABLE DATA CHART ---
+    // --- 9. RENDER SCROLLABLE DATA CHART ---
     const ctx = document.getElementById('usageChart');
     if (!ctx) return;
 
@@ -519,7 +514,7 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                 labels: labels,
                 datasets: [
                     {
-                        label: '3-Day Rolling Avg',
+                        label: `${smoothWindow}-Day Rolling Avg`,
                         data: smoothedValues,
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.05)',
@@ -543,14 +538,14 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-				layout: {
-    padding: { left: 0, right: 2 } // was left: 4
-},
+                layout: {
+                    padding: { left: 0, right: 2 }
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
                         max: maxY,
-                        ticks: { display: false }, // Hidden so fixed Y-axis numbers show through
+                        ticks: { display: false },
                         grid: { drawBorder: false }
                     },
                     x: {
@@ -564,13 +559,12 @@ if (modalTitle) modalTitle.innerText = `${smoothWindow}-Day Rolling Average Tren
                     }
                 },
                 plugins: {
-                    legend: { display: false } // Hidden in favor of HTML Legend
+                    legend: { display: false }
                 }
             }
         });
     }
 
-    // Auto scroll right attempt
     scrollToChartRight();
 }
 
